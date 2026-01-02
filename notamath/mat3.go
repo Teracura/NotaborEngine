@@ -137,7 +137,7 @@ func (t *Transform2D) TransformPoint(p Po2) Po2 {
 }
 
 func (t *Transform2D) TransformVector(v Vec2) Vec2 {
-	return t.Matrix().TransformVec(v)
+	return t.Matrix().TransformVec2(v)
 }
 
 func (t *Transform2D) TranslateBy(delta Vec2) {
@@ -161,7 +161,7 @@ func (m Mat3) TransformPo2(p Po2) Po2 {
 	}
 }
 
-func (m Mat3) TransformVec(v Vec2) Vec2 {
+func (m Mat3) TransformVec2(v Vec2) Vec2 {
 	return Vec2{
 		X: m.M[0]*v.X + m.M[3]*v.Y,
 		Y: m.M[1]*v.X + m.M[4]*v.Y,
