@@ -73,6 +73,14 @@ func main() {
 		Transform: notamath.NewTransform2D(),
 	}
 
+	tri := &notagl.Polygon{
+		Vertices: []notamath.Po2{
+			{X: 0, Y: 0},
+			{X: 100, Y: 100},
+			{X: 0, Y: 100},
+		},
+	}
+
 	renderLoop.Runnables = append(
 		renderLoop.Runnables,
 		func() error {
@@ -81,6 +89,12 @@ func main() {
 			return nil
 		},
 	)
+
+	renderLoop.Runnables = append(renderLoop.Runnables, func() error {
+		gl.UseProgram(notashader.Shaders["basic2d"])
+		renderer.Submit(tri)
+		return nil
+	})
 
 	logicLoop.Runnables = append(logicLoop.Runnables, func() error {
 		rect.Transform.RotateBy(0.01)
