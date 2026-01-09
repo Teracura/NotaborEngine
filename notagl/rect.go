@@ -1,6 +1,8 @@
 package notagl
 
-import "NotaborEngine/notamath"
+import (
+	"NotaborEngine/notamath"
+)
 
 type Rect struct {
 	Center    notamath.Po2
@@ -8,7 +10,7 @@ type Rect struct {
 	Transform notamath.Transform2D
 }
 
-func (r Rect) AddToOrders(orders *[]DrawOrder2D) {
+func (r *Rect) AddToOrders(orders *[]DrawOrder2D, alpha float32) {
 	hw := r.W / 2
 	hh := r.H / 2
 
@@ -23,8 +25,10 @@ func (r Rect) AddToOrders(orders *[]DrawOrder2D) {
 		{c.X - hw, c.Y + hh},
 	}
 
+	mat := r.Transform.InterpolatedMatrix(alpha)
+
 	for i := range vertices {
-		vertices[i] = r.Transform.TransformPoint(vertices[i])
+		vertices[i] = mat.TransformPo2(vertices[i])
 	}
 
 	*orders = append(*orders, DrawOrder2D{Vertices: vertices})

@@ -24,6 +24,9 @@ type FixedHzLoop struct {
 
 	stop chan struct{}
 	wg   sync.WaitGroup
+
+	lastTick time.Time
+	delta    time.Duration
 }
 
 type RenderLoop struct {
@@ -50,7 +53,8 @@ func (l *FixedHzLoop) Start() {
 		defer l.wg.Done()
 
 		interval := time.Duration(float64(time.Second) / float64(l.Hz))
-		fmt.Printf("Starting FixedHzLoop at %.2f Hz (interval: %v)\n", l.Hz, interval)
+		l.delta = interval
+		l.lastTick = time.Now()
 
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
@@ -60,6 +64,7 @@ func (l *FixedHzLoop) Start() {
 			case <-ticker.C:
 				// Execute all runnables
 				l.mu.Lock()
+				l.lastTick = time.Now()
 				rs := append([]Runnable(nil), l.Runnables...)
 				l.mu.Unlock()
 
@@ -101,12 +106,6 @@ func (r *RenderLoop) Start() {
 
 func (r *RenderLoop) Render() {
 	now := time.Now()
-	minInterval := time.Duration(float64(time.Second) / float64(r.MaxHz))
-
-	if now.Sub(r.LastTime) < minInterval {
-		// Too soon, skip this frame
-		return
-	} //too soon, skip
 
 	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
@@ -116,6 +115,26 @@ func (r *RenderLoop) Render() {
 			fmt.Println("Render error:", err)
 		}
 	}
-
 	r.LastTime = now
+}
+
+func (l *FixedHzLoop) Alpha(now time.Time) float32 {
+	l.mu.Lock()
+	last := l.lastTick
+	delta := l.delta
+	l.mu.Unlock()
+
+	if delta <= 0 {
+		return 1
+	}
+
+	alpha := float32(now.Sub(last).Seconds() / delta.Seconds())
+
+	if alpha < 0 {
+		return 0
+	}
+	if alpha > 1 {
+		return 1
+	}
+	return alpha
 }

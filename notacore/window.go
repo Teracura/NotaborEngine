@@ -1,8 +1,10 @@
 package notacore
 
 import (
+	"NotaborEngine/notagl"
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/go-gl/glfw/v3.3/glfw"
 )
@@ -21,8 +23,10 @@ type WindowConfig struct {
 	Title      string
 	Resizable  bool
 	Type       WindowType
-	LogicLoops []FixedHzLoop
+	LogicLoops []*FixedHzLoop
 	RenderLoop *RenderLoop
+
+	autoStartLoops bool
 }
 
 type Window interface {
@@ -183,4 +187,51 @@ func (wm *GLFWWindowManager) Destroy(w Window) {
 			break
 		}
 	}
+}
+
+func (wc WindowConfig) AddLogicLoop(loop *FixedHzLoop) {
+	wc.LogicLoops = append(wc.LogicLoops, loop)
+}
+
+func Run[T any](wm WindowManager, window Window, cfg WindowConfig, renderer notagl.Renderer[T], backend *T) error {
+
+	for _, loop := range cfg.LogicLoops {
+		loop.Start()
+	}
+
+	lastRenderTime := time.Now()
+	targetFrameDuration := time.Second / time.Duration(cfg.RenderLoop.MaxHz)
+
+	for !window.ShouldClose() {
+		now := time.Now()
+		elapsed := now.Sub(lastRenderTime)
+
+		if elapsed < targetFrameDuration {
+			time.Sleep(targetFrameDuration - elapsed)
+			continue
+		}
+		lastRenderTime = now
+
+		wm.PollEvents()
+
+		if renderer != nil {
+			renderer.Begin()
+		}
+
+		window.MakeContextCurrent()
+
+		cfg.RenderLoop.Render()
+
+		if renderer != nil {
+			renderer.Flush(backend)
+		}
+
+		window.SwapBuffers()
+	}
+
+	for _, loop := range cfg.LogicLoops {
+		loop.Stop()
+	}
+
+	return nil
 }

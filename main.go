@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/go-gl/gl/v4.6-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
@@ -21,17 +22,18 @@ func main() {
 	addNativeDLLPath()
 
 	wm, err := notacore.NewGLFWWindowManager()
-
 	if err != nil {
 		panic(err)
 	}
 	defer glfw.Terminate()
 
 	renderLoop := &notacore.RenderLoop{
-		MaxHz: 60,
+		MaxHz:     60,
+		Runnables: nil,
+		LastTime:  time.Time{},
 	}
 
-	logicLoop := notacore.FixedHzLoop{
+	logicLoop := &notacore.FixedHzLoop{
 		Hz:        240,
 		Runnables: nil,
 	}
@@ -44,7 +46,7 @@ func main() {
 		Title:      "Test Window",
 		Resizable:  true,
 		Type:       notacore.Windowed,
-		LogicLoops: nil,
+		LogicLoops: []*notacore.FixedHzLoop{logicLoop},
 		RenderLoop: renderLoop,
 	}
 
@@ -52,19 +54,28 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
 	window.MakeContextCurrent()
 
-	if err = gl.Init(); err != nil {
+	if err := gl.Init(); err != nil {
 		panic(err)
 	}
+
+	backend := notagl.GLBackend2D{}
+	backend.Init()
 
 	notashader.Shaders["basic2d"] = notashader.CreateProgram(notashader.Vertex2D, notashader.Fragment2D).Type
 
 	renderer := notagl.Renderer2D{}
 
-	backend := notagl.GLBackend2D{}
-	backend.Init()
+	addRunnables(logicLoop, renderLoop, &renderer)
+
+	err = notacore.Run(wm, window, cfg, &renderer, &backend)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func addRunnables(logicLoop *notacore.FixedHzLoop, renderLoop *notacore.RenderLoop, renderer *notagl.Renderer2D) {
 
 	rect := &notagl.Rect{
 		Center:    notamath.Po2{X: 0, Y: 0},
@@ -73,50 +84,21 @@ func main() {
 		Transform: notamath.NewTransform2D(),
 	}
 
-	tri := &notagl.Polygon{
-		Vertices: []notamath.Po2{
-			{X: 0, Y: 0},
-			{X: 100, Y: 100},
-			{X: 0, Y: 100},
-		},
-	}
-
-	renderLoop.Runnables = append(
-		renderLoop.Runnables,
-		func() error {
-			gl.UseProgram(notashader.Shaders["basic2d"])
-			renderer.Submit(rect)
-			return nil
-		},
-	)
-
-	renderLoop.Runnables = append(renderLoop.Runnables, func() error {
-		gl.UseProgram(notashader.Shaders["basic2d"])
-		renderer.Submit(tri)
-		return nil
-	})
-
 	logicLoop.Runnables = append(logicLoop.Runnables, func() error {
+		rect.Transform.Snapshot()
 		rect.Transform.RotateBy(0.01)
 		return nil
 	})
 
-	logicLoop.Start()
+	renderLoop.Runnables = append(renderLoop.Runnables, func() error {
+		gl.UseProgram(notashader.Shaders["basic2d"])
 
-	for !window.ShouldClose() {
-		wm.PollEvents()
+		now := time.Now()
+		alpha := logicLoop.Alpha(now)
 
-		glfw.WaitEventsTimeout(float64(1.0 / renderLoop.MaxHz))
-
-		renderer.Begin()
-
-		window.MakeContextCurrent()
-		renderLoop.Render()
-
-		renderer.Flush(&backend)
-
-		window.SwapBuffers()
-	}
+		renderer.Submit(rect, alpha)
+		return nil
+	})
 }
 
 func addNativeDLLPath() {

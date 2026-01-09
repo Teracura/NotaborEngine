@@ -13,8 +13,14 @@ type Transform2D struct {
 	Position Vec2
 	Rotation float32 // radians
 	Scale    Vec2
-	Dirty    bool //mutated without mapping to a matrix
-	matrix   Mat3
+
+	// previous (for interpolation)
+	prevPosition Vec2
+	prevRotation float32
+	prevScale    Vec2
+
+	Dirty  bool //mutated without mapping to a matrix
+	matrix Mat3
 }
 
 func Mat3Identity() Mat3 {
@@ -210,4 +216,30 @@ func (m Mat3) String() string {
 func Mat3TRSS(pos Vec2, rot float32, scale Vec2, shearX, shearY float32) Mat3 {
 	trs := Mat3TRS(pos, rot, scale)
 	return Mat3Shear(shearX, shearY).Mul(trs)
+}
+
+// Snapshot saves the previous transform values
+func (t *Transform2D) Snapshot() {
+	t.prevPosition = t.Position
+	t.prevRotation = t.Rotation
+	t.prevScale = t.Scale
+}
+
+func (t *Transform2D) InterpolatedMatrix(alpha float32) Mat3 {
+	pos := t.prevPosition.Lerp(t.Position, alpha)
+	scale := t.prevScale.Lerp(t.Scale, alpha)
+	rot := lerpAngle(t.prevRotation, t.Rotation, alpha)
+
+	return Mat3TRS(pos, rot, scale)
+}
+
+func lerpAngle(a, b, t float32) float32 {
+	d := b - a
+	for d > math.Pi {
+		d -= 2 * math.Pi
+	}
+	for d < -math.Pi {
+		d += 2 * math.Pi
+	}
+	return a + d*t
 }
