@@ -20,11 +20,11 @@ func (r *Renderer2D) Begin() {
 }
 
 type Shape2D interface {
-	AddToOrders(orders *[]DrawOrder2D)
+	AddToOrders(orders *[]DrawOrder2D, alpha float32)
 }
 
-func (r *Renderer2D) Submit(s Shape2D) {
-	s.AddToOrders(&r.Orders)
+func (r *Renderer2D) Submit(s Shape2D, alpha float32) {
+	s.AddToOrders(&r.Orders, alpha)
 }
 
 type vertexFormat2D struct {

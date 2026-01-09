@@ -21,8 +21,10 @@ type WindowConfig struct {
 	Title      string
 	Resizable  bool
 	Type       WindowType
-	LogicLoops []FixedHzLoop
+	LogicLoops []*FixedHzLoop
 	RenderLoop *RenderLoop
+
+	autoStartLoops bool
 }
 
 type Window interface {
@@ -183,4 +185,8 @@ func (wm *GLFWWindowManager) Destroy(w Window) {
 			break
 		}
 	}
+}
+
+func (wc WindowConfig) AddLogicLoop(loop *FixedHzLoop) {
+	wc.LogicLoops = append(wc.LogicLoops, loop)
 }
