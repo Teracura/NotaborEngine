@@ -5,7 +5,6 @@ import (
 	"NotaborEngine/notagl"
 	"NotaborEngine/notamath"
 	"NotaborEngine/notashader"
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -91,15 +90,7 @@ func main() {
 		renderer.Begin()
 		window.MakeContextCurrent()
 
-		// Remove the timing check inside Render() since we handle it here
-		gl.ClearColor(0.0, 0.0, 0.0, 1.0)
-		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-
-		for _, runnable := range renderLoop.Runnables {
-			if err := runnable(); err != nil {
-				fmt.Println("Render error:", err)
-			}
-		}
+		renderLoop.Render()
 
 		renderer.Flush(&backend)
 		window.SwapBuffers()
