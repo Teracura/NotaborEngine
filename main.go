@@ -54,46 +54,24 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
 	window.MakeContextCurrent()
 
-	if err = gl.Init(); err != nil {
+	if err := gl.Init(); err != nil {
 		panic(err)
 	}
+
+	backend := notagl.GLBackend2D{}
+	backend.Init()
 
 	notashader.Shaders["basic2d"] = notashader.CreateProgram(notashader.Vertex2D, notashader.Fragment2D).Type
 
 	renderer := notagl.Renderer2D{}
-	backend := notagl.GLBackend2D{}
-	backend.Init()
 
-	addRunnables(logicLoop, cfg.RenderLoop, &renderer)
+	addRunnables(logicLoop, renderLoop, &renderer)
 
-	for _, loop := range cfg.LogicLoops {
-		loop.Start()
-	}
-
-	lastRenderTime := time.Now()
-	for !window.ShouldClose() {
-		now := time.Now()
-		elapsed := now.Sub(lastRenderTime)
-
-		targetFrameDuration := time.Second / time.Duration(renderLoop.MaxHz)
-
-		if elapsed < targetFrameDuration {
-			time.Sleep(targetFrameDuration - elapsed)
-			continue
-		}
-
-		lastRenderTime = now
-		wm.PollEvents()
-		renderer.Begin()
-		window.MakeContextCurrent()
-
-		renderLoop.Render()
-
-		renderer.Flush(&backend)
-		window.SwapBuffers()
+	err = notacore.Run(wm, window, cfg, &renderer, &backend)
+	if err != nil {
+		panic(err)
 	}
 }
 
