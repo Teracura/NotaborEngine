@@ -84,14 +84,12 @@ func addRunnables(logicLoop *notacore.FixedHzLoop, renderLoop *notacore.RenderLo
 		Transform: notamath.NewTransform2D(),
 	}
 
-	// Add logic runnable (no snapshot needed - handled by synchronizer)
 	logicLoop.Runnables = append(logicLoop.Runnables, func() error {
 		rect.Transform.Snapshot()
 		rect.Transform.RotateBy(0.01)
 		return nil
 	})
 
-	// Add render runnable (no channel waiting - handled by synchronizer)
 	renderLoop.Runnables = append(renderLoop.Runnables, func() error {
 		gl.UseProgram(notashader.Shaders["basic2d"])
 
