@@ -29,37 +29,39 @@ type WindowConfig struct {
 	autoStartLoops bool
 }
 
-type Window interface {
-	ID() int
-	Size() (int, int)
-	Position() (int, int)
-
-	MakeContextCurrent()
-	SwapBuffers()
-
-	ShouldClose() bool
-	Close()
-
-	SetTitle(string)
+type WindowRuntime2D struct {
+	LastRender time.Time
+	TargetDt   time.Duration
+	Backend    *notagl.GLBackend2D
+	Renderer   *notagl.Renderer2D
 }
 
-type WindowManager interface {
-	Create(WindowConfig) (Window, error)
-	Destroy(Window)
-
-	PollEvents()
-	Windows() []Window
+type WindowRuntime3D struct {
+	LastRender time.Time
+	TargetDt   time.Duration
+	Backend    *notagl.GLBackend3D
+	Renderer   *notagl.Renderer3D
 }
 
-type glfwWindow struct {
-	id     int
-	handle *glfw.Window
+type GlfwWindow2D struct {
+	ID      int
+	Handle  *glfw.Window
+	Config  WindowConfig
+	RunTime WindowRuntime2D
+}
+
+type GlfwWindow3D struct {
+	ID      int
+	Handle  *glfw.Window
+	Config  WindowConfig
+	RunTime WindowRuntime3D
 }
 
 type GLFWWindowManager struct {
-	mu      sync.Mutex
-	windows []*glfwWindow
-	nextID  int
+	mu        sync.Mutex
+	windows2D []*GlfwWindow2D
+	windows3D []*GlfwWindow3D
+	nextID    int
 }
 
 func NewGLFWWindowManager() (*GLFWWindowManager, error) {
@@ -69,64 +71,18 @@ func NewGLFWWindowManager() (*GLFWWindowManager, error) {
 
 	glfw.WindowHint(glfw.Resizable, glfw.True)
 	glfw.WindowHint(glfw.ContextVersionMajor, 4)
-	glfw.WindowHint(glfw.ContextVersionMinor, 6) //GL VERSION 4.6
+	glfw.WindowHint(glfw.ContextVersionMinor, 6)
 	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
-	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True) //FOR DEVICES THAT SUPPORT LOWER END VERSIONS
+	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
 
 	return &GLFWWindowManager{
-		windows: []*glfwWindow{},
-		nextID:  0,
+		windows2D: []*GlfwWindow2D{},
+		windows3D: []*GlfwWindow3D{},
+		nextID:    0,
 	}, nil
 }
 
-func (wm *GLFWWindowManager) PollEvents() {
-	glfw.PollEvents()
-}
-
-func (wm *GLFWWindowManager) Windows() []Window {
-	wm.mu.Lock()
-	defer wm.mu.Unlock()
-
-	windows := make([]Window, len(wm.windows))
-	for i, w := range wm.windows {
-		windows[i] = w
-	}
-	return windows
-}
-
-func (w *glfwWindow) ID() int {
-	return w.id
-}
-
-func (w *glfwWindow) Size() (int, int) {
-	return w.handle.GetSize()
-}
-
-func (w *glfwWindow) Position() (int, int) {
-	return w.handle.GetPos()
-}
-
-func (w *glfwWindow) ShouldClose() bool {
-	return w.handle.ShouldClose()
-}
-
-func (w *glfwWindow) Close() {
-	w.handle.SetShouldClose(true)
-}
-
-func (w *glfwWindow) SetTitle(title string) {
-	w.handle.SetTitle(title)
-}
-
-func (w *glfwWindow) MakeContextCurrent() {
-	w.handle.MakeContextCurrent()
-}
-
-func (w *glfwWindow) SwapBuffers() {
-	w.handle.SwapBuffers()
-}
-
-func (wm *GLFWWindowManager) Create(cfg WindowConfig) (Window, error) {
+func (wm *GLFWWindowManager) Create2D(cfg WindowConfig) (*GlfwWindow2D, error) {
 	wm.mu.Lock()
 	defer wm.mu.Unlock()
 
@@ -137,15 +93,12 @@ func (wm *GLFWWindowManager) Create(cfg WindowConfig) (Window, error) {
 	var monitor *glfw.Monitor
 	if cfg.Type == Fullscreen {
 		monitor = glfw.GetPrimaryMonitor()
-	} else {
-		monitor = nil
 	}
 
 	handle, err := glfw.CreateWindow(cfg.W, cfg.H, cfg.Title, monitor, nil)
 	if err != nil {
 		return nil, err
 	}
-
 	if !cfg.Resizable {
 		handle.SetAttrib(glfw.Resizable, glfw.False)
 	}
@@ -154,36 +107,111 @@ func (wm *GLFWWindowManager) Create(cfg WindowConfig) (Window, error) {
 	handle.MakeContextCurrent()
 	handle.Show()
 
-	win := &glfwWindow{
-		id:     wm.nextID,
-		handle: handle,
+	win := &GlfwWindow2D{
+		ID:     wm.nextID,
+		Handle: handle,
+		Config: cfg,
+		RunTime: WindowRuntime2D{
+			LastRender: time.Now(),
+			TargetDt:   time.Second / time.Duration(cfg.RenderLoop.MaxHz),
+			Backend:    &notagl.GLBackend2D{},
+			Renderer:   &notagl.Renderer2D{},
+		},
 	}
 
-	wm.windows = append(wm.windows, win)
+	wm.windows2D = append(wm.windows2D, win)
 	wm.nextID++
-
-	for i := range cfg.LogicLoops {
-		cfg.LogicLoops[i].Start()
-	}
-
-	if cfg.RenderLoop != nil {
-		cfg.RenderLoop.Start()
-	}
-
 	return win, nil
 }
 
-func (wm *GLFWWindowManager) Destroy(w Window) {
+func (wm *GLFWWindowManager) Create3D(cfg WindowConfig) (*GlfwWindow3D, error) {
 	wm.mu.Lock()
 	defer wm.mu.Unlock()
 
-	for i, win := range wm.windows {
-		if win == w {
-			win.Close()
-			last := len(wm.windows) - 1
-			wm.windows[i] = wm.windows[last]
-			wm.windows[last] = nil
-			wm.windows = wm.windows[:last]
+	if cfg.W <= 0 || cfg.H <= 0 {
+		return nil, errors.New("invalid window size")
+	}
+
+	var monitor *glfw.Monitor
+	if cfg.Type == Fullscreen {
+		monitor = glfw.GetPrimaryMonitor()
+	}
+
+	handle, err := glfw.CreateWindow(cfg.W, cfg.H, cfg.Title, monitor, nil)
+	if err != nil {
+		return nil, err
+	}
+	if !cfg.Resizable {
+		handle.SetAttrib(glfw.Resizable, glfw.False)
+	}
+
+	handle.SetPos(cfg.X, cfg.Y)
+	handle.MakeContextCurrent()
+	handle.Show()
+
+	win := &GlfwWindow3D{
+		ID:     wm.nextID,
+		Handle: handle,
+		Config: cfg,
+		RunTime: WindowRuntime3D{
+			LastRender: time.Now(),
+			TargetDt:   time.Second / time.Duration(cfg.RenderLoop.MaxHz),
+			Backend:    &notagl.GLBackend3D{},
+			Renderer:   &notagl.Renderer3D{},
+		},
+	}
+
+	wm.windows3D = append(wm.windows3D, win)
+	wm.nextID++
+	return win, nil
+}
+
+func (wm *GLFWWindowManager) PollEvents() {
+	glfw.PollEvents()
+}
+
+type Window interface {
+	MakeContextCurrent()
+	SwapBuffers()
+	ShouldClose() bool
+	Close()
+	Size() (int, int)
+	Position() (int, int)
+}
+
+func (w *GlfwWindow2D) MakeContextCurrent()  { w.Handle.MakeContextCurrent() }
+func (w *GlfwWindow2D) SwapBuffers()         { w.Handle.SwapBuffers() }
+func (w *GlfwWindow2D) ShouldClose() bool    { return w.Handle.ShouldClose() }
+func (w *GlfwWindow2D) Close()               { w.Handle.SetShouldClose(true) }
+func (w *GlfwWindow2D) Size() (int, int)     { return w.Handle.GetSize() }
+func (w *GlfwWindow2D) Position() (int, int) { return w.Handle.GetPos() }
+
+func (w *GlfwWindow3D) MakeContextCurrent()  { w.Handle.MakeContextCurrent() }
+func (w *GlfwWindow3D) SwapBuffers()         { w.Handle.SwapBuffers() }
+func (w *GlfwWindow3D) ShouldClose() bool    { return w.Handle.ShouldClose() }
+func (w *GlfwWindow3D) Close()               { w.Handle.SetShouldClose(true) }
+func (w *GlfwWindow3D) Size() (int, int)     { return w.Handle.GetSize() }
+func (w *GlfwWindow3D) Position() (int, int) { return w.Handle.GetPos() }
+
+func (wm *GLFWWindowManager) Destroy2D(win *GlfwWindow2D) {
+	wm.mu.Lock()
+	defer wm.mu.Unlock()
+	for i, w := range wm.windows2D {
+		if w == win {
+			w.Close()
+			wm.windows2D = append(wm.windows2D[:i], wm.windows2D[i+1:]...)
+			break
+		}
+	}
+}
+
+func (wm *GLFWWindowManager) Destroy3D(win *GlfwWindow3D) {
+	wm.mu.Lock()
+	defer wm.mu.Unlock()
+	for i, w := range wm.windows3D {
+		if w == win {
+			w.Close()
+			wm.windows3D = append(wm.windows3D[:i], wm.windows3D[i+1:]...)
 			break
 		}
 	}
@@ -191,47 +219,4 @@ func (wm *GLFWWindowManager) Destroy(w Window) {
 
 func (wc WindowConfig) AddLogicLoop(loop *FixedHzLoop) {
 	wc.LogicLoops = append(wc.LogicLoops, loop)
-}
-
-func Run[T any](wm WindowManager, window Window, cfg WindowConfig, renderer notagl.Renderer[T], backend *T) error {
-
-	for _, loop := range cfg.LogicLoops {
-		loop.Start()
-	}
-
-	lastRenderTime := time.Now()
-	targetFrameDuration := time.Second / time.Duration(cfg.RenderLoop.MaxHz)
-
-	for !window.ShouldClose() {
-		now := time.Now()
-		elapsed := now.Sub(lastRenderTime)
-
-		if elapsed < targetFrameDuration {
-			time.Sleep(targetFrameDuration - elapsed)
-			continue
-		}
-		lastRenderTime = now
-
-		wm.PollEvents()
-
-		if renderer != nil {
-			renderer.Begin()
-		}
-
-		window.MakeContextCurrent()
-
-		cfg.RenderLoop.Render()
-
-		if renderer != nil {
-			renderer.Flush(backend)
-		}
-
-		window.SwapBuffers()
-	}
-
-	for _, loop := range cfg.LogicLoops {
-		loop.Stop()
-	}
-
-	return nil
 }
