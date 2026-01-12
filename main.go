@@ -5,13 +5,10 @@ import (
 	"NotaborEngine/notagl"
 	"NotaborEngine/notamath"
 	"NotaborEngine/notashader"
-	"os"
-	"path/filepath"
 	"runtime"
 	"time"
 
 	"github.com/go-gl/gl/v4.6-core/gl"
-	"github.com/go-gl/glfw/v3.3/glfw"
 )
 
 func init() {
@@ -19,70 +16,88 @@ func init() {
 }
 
 func main() {
-	addNativeDLLPath()
+	engine := &notacore.Engine{
+		Settings: &notacore.Settings{},
+	}
 
-	wm, err := notacore.NewGLFWWindowManager()
-	if err != nil {
+	if err := engine.InitPlatform(); err != nil {
 		panic(err)
 	}
-	defer glfw.Terminate()
+	defer engine.Shutdown()
 
-	renderLoop := &notacore.RenderLoop{
-		MaxHz:     60,
-		Runnables: nil,
-		LastTime:  time.Time{},
-	}
+	renderLoop1 := &notacore.RenderLoop{MaxHz: 60}
+	logicLoop1 := &notacore.FixedHzLoop{Hz: 240}
 
-	logicLoop := &notacore.FixedHzLoop{
-		Hz:        240,
-		Runnables: nil,
-	}
+	renderLoop2 := &notacore.RenderLoop{MaxHz: 60}
+	logicLoop2 := &notacore.FixedHzLoop{Hz: 240}
 
-	cfg := notacore.WindowConfig{
+	cfg1 := notacore.WindowConfig{
 		X:          100,
 		Y:          100,
 		W:          800,
 		H:          600,
-		Title:      "Test Window",
+		Title:      "Test Window 1",
 		Resizable:  true,
 		Type:       notacore.Windowed,
-		LogicLoops: []*notacore.FixedHzLoop{logicLoop},
-		RenderLoop: renderLoop,
+		LogicLoops: []*notacore.FixedHzLoop{logicLoop1},
+		RenderLoop: renderLoop1,
 	}
-
-	window, err := wm.Create(cfg)
+	win1, err := engine.CreateWindow2D(cfg1)
 	if err != nil {
 		panic(err)
 	}
-	window.MakeContextCurrent()
 
-	if err := gl.Init(); err != nil {
+	cfg2 := notacore.WindowConfig{
+		X:          400,
+		Y:          400,
+		W:          800,
+		H:          600,
+		Title:      "Test Window 2",
+		Resizable:  true,
+		Type:       notacore.Windowed,
+		LogicLoops: []*notacore.FixedHzLoop{logicLoop2},
+		RenderLoop: renderLoop2,
+	}
+	win2, err := engine.CreateWindow2D(cfg2)
+	if err != nil {
 		panic(err)
 	}
 
-	backend := notagl.GLBackend2D{}
-	backend.Init()
+	win1.MakeContextCurrent()
 
-	notashader.Shaders["basic2d"] = notashader.CreateProgram(notashader.Vertex2D, notashader.Fragment2D).Type
+	win1.MakeContextCurrent()
+	shader1 := notashader.CreateProgram(
+		notashader.Vertex2D,
+		notashader.Fragment2D,
+	).Type
 
-	renderer := notagl.Renderer2D{}
+	// Create shader for window 2 IN ITS CONTEXT
+	win2.MakeContextCurrent()
+	shader2 := notashader.CreateProgram(
+		notashader.Vertex2D,
+		notashader.Fragment2D,
+	).Type
 
-	addRunnables(logicLoop, renderLoop, &renderer)
+	addRunnables(win1, shader1)
+	addRunnables(win2, shader2)
 
-	err = notacore.Run(wm, window, cfg, &renderer, &backend)
-	if err != nil {
+	if err := engine.Run(); err != nil {
 		panic(err)
 	}
 }
 
-func addRunnables(logicLoop *notacore.FixedHzLoop, renderLoop *notacore.RenderLoop, renderer *notagl.Renderer2D) {
-
+func addRunnables(win *notacore.GlfwWindow2D, shaderProgram uint32) {
 	rect := &notagl.Rect{
 		Center:    notamath.Po2{X: 0, Y: 0},
 		W:         0.5,
 		H:         0.5,
 		Transform: notamath.NewTransform2D(),
 	}
+
+	logicLoop := win.Config.LogicLoops[0]
+	renderLoop := win.Config.RenderLoop
+	backend := win.RunTime.Backend
+	renderer := win.RunTime.Renderer
 
 	logicLoop.Runnables = append(logicLoop.Runnables, func() error {
 		rect.Transform.Snapshot()
@@ -91,27 +106,12 @@ func addRunnables(logicLoop *notacore.FixedHzLoop, renderLoop *notacore.RenderLo
 	})
 
 	renderLoop.Runnables = append(renderLoop.Runnables, func() error {
-		gl.UseProgram(notashader.Shaders["basic2d"])
+		gl.UseProgram(shaderProgram)
+		alpha := logicLoop.Alpha(time.Now())
 
-		now := time.Now()
-		alpha := logicLoop.Alpha(now)
-
+		renderer.Begin()
 		renderer.Submit(rect, alpha)
+		renderer.Flush(backend)
 		return nil
 	})
-}
-
-func addNativeDLLPath() {
-	switch runtime.GOOS {
-	case "windows":
-		exeDir, _ := os.Getwd()
-		dllDir := filepath.Join(exeDir, "notacore", "native", "windows")
-		_ = os.Setenv("PATH", dllDir+";"+os.Getenv("PATH"))
-
-	case "linux":
-		// set linux paths later
-
-	case "darwin":
-		// set mac paths later
-	}
 }
