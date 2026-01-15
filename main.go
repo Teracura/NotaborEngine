@@ -1,14 +1,14 @@
 package main
 
 import (
+	"github.com/go-gl/gl/v4.6-core/gl"
+
 	"NotaborEngine/notacore"
 	"NotaborEngine/notagl"
 	"NotaborEngine/notamath"
 	"NotaborEngine/notashader"
 	"runtime"
 	"time"
-
-	"github.com/go-gl/gl/v4.6-core/gl"
 )
 
 func init() {
@@ -38,7 +38,7 @@ func main() {
 		H:          600,
 		Title:      "Test Window 1",
 		Resizable:  true,
-		Type:       notacore.Windowed,
+		Type:       notacore.Borderless,
 		LogicLoops: []*notacore.FixedHzLoop{logicLoop1},
 		RenderLoop: renderLoop1,
 	}
