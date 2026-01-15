@@ -237,18 +237,14 @@ func (wm *GLFWWindowManager) Create3D(cfg WindowConfig) (*GlfwWindow3D, error) {
 	// Set window hints for borderless
 	if cfg.Type == Borderless {
 		glfw.WindowHint(glfw.Decorated, glfw.False)
-		if cfg.Resizable {
-			glfw.WindowHint(glfw.Resizable, glfw.True)
-		} else {
-			glfw.WindowHint(glfw.Resizable, glfw.False)
-		}
 	} else {
-		if cfg.Resizable {
-			glfw.WindowHint(glfw.Resizable, glfw.True)
-		} else {
-			glfw.WindowHint(glfw.Resizable, glfw.False)
-		}
 		glfw.WindowHint(glfw.Decorated, glfw.True)
+	}
+
+	if cfg.Resizable {
+		glfw.WindowHint(glfw.Resizable, glfw.True)
+	} else {
+		glfw.WindowHint(glfw.Resizable, glfw.False)
 	}
 
 	var handle *glfw.Window
