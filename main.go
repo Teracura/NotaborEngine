@@ -28,9 +28,6 @@ func main() {
 	renderLoop1 := &notacore.RenderLoop{MaxHz: 60}
 	logicLoop1 := &notacore.FixedHzLoop{Hz: 240}
 
-	renderLoop2 := &notacore.RenderLoop{MaxHz: 60}
-	logicLoop2 := &notacore.FixedHzLoop{Hz: 240}
-
 	cfg1 := notacore.WindowConfig{
 		X:          100,
 		Y:          100,
@@ -38,7 +35,7 @@ func main() {
 		H:          600,
 		Title:      "Test Window 1",
 		Resizable:  true,
-		Type:       notacore.Borderless,
+		Type:       notacore.Windowed,
 		LogicLoops: []*notacore.FixedHzLoop{logicLoop1},
 		RenderLoop: renderLoop1,
 	}
@@ -46,40 +43,13 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	cfg2 := notacore.WindowConfig{
-		X:          400,
-		Y:          400,
-		W:          800,
-		H:          600,
-		Title:      "Test Window 2",
-		Resizable:  true,
-		Type:       notacore.Windowed,
-		LogicLoops: []*notacore.FixedHzLoop{logicLoop2},
-		RenderLoop: renderLoop2,
-	}
-	win2, err := engine.CreateWindow2D(cfg2)
-	if err != nil {
-		panic(err)
-	}
-
-	win1.MakeContextCurrent()
-
 	win1.MakeContextCurrent()
 	shader1 := notashader.CreateProgram(
 		notashader.Vertex2D,
 		notashader.Fragment2D,
 	).Type
 
-	// Create shader for window 2 IN ITS CONTEXT
-	win2.MakeContextCurrent()
-	shader2 := notashader.CreateProgram(
-		notashader.Vertex2D,
-		notashader.Fragment2D,
-	).Type
-
 	addRunnables(win1, shader1)
-	addRunnables(win2, shader2)
 
 	if err := engine.Run(); err != nil {
 		panic(err)
@@ -87,12 +57,17 @@ func main() {
 }
 
 func addRunnables(win *notacore.GlfwWindow2D, shaderProgram uint32) {
-	rect := &notagl.Rect{
-		Center:    notamath.Po2{X: 0, Y: 0},
-		W:         0.5,
-		H:         0.5,
+	rect := notagl.Polygon{
+		Vertices: []notamath.Po2{
+			{0, 0},
+			{1, 0},
+			{1, 1},
+			{0, 1},
+			{-1, -1},
+		},
 		Transform: notamath.NewTransform2D(),
 	}
+	rect.Fixate()
 
 	logicLoop := win.Config.LogicLoops[0]
 	renderLoop := win.Config.RenderLoop

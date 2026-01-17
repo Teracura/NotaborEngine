@@ -29,3 +29,7 @@ func (p Po2) Equals(q Po2, eps float32) bool {
 func (p Po2) String() string {
 	return fmt.Sprintf("Point2(%f, %f)", p.X, p.Y)
 }
+
+func Orient(a, b, c Po2) float32 {
+	return (b.X-a.X)*(c.Y-a.Y) - (b.Y-a.Y)*(c.X-a.X)
+}
