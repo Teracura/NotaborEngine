@@ -19,12 +19,20 @@ func (r *Renderer2D) Begin() {
 	r.Orders = r.Orders[:0]
 }
 
-type Shape2D interface {
-	AddToOrders(orders *[]DrawOrder2D, alpha float32)
-}
+func (r *Renderer2D) Submit(p Polygon, alpha float32) {
+	var temp []DrawOrder2D
 
-func (r *Renderer2D) Submit(s Shape2D, alpha float32) {
-	s.AddToOrders(&r.Orders, alpha)
+	p.AddToOrders(&temp, alpha)
+
+	for _, order := range temp {
+		tris := Triangulate2D(order.Vertices)
+		if len(tris) == 0 {
+			continue
+		}
+		r.Orders = append(r.Orders, DrawOrder2D{
+			Vertices: tris,
+		})
+	}
 }
 
 type vertexFormat2D struct {
@@ -68,4 +76,47 @@ func (r *Renderer2D) Flush(backend *GLBackend2D) {
 	backend.UploadData(flat)
 	backend.BindVao()
 	gl.DrawArrays(gl.TRIANGLES, 0, int32(len(flat)))
+}
+
+func Triangulate2D(polygon []notamath.Po2) []notamath.Po2 {
+	n := len(polygon)
+	if n < 3 {
+		return nil
+	}
+
+	verts := append([]notamath.Po2{}, polygon...)
+
+	// Enforce CCW winding
+	if !IsCCW(verts) {
+		for i, j := 0, len(verts)-1; i < j; i, j = i+1, j-1 {
+			verts[i], verts[j] = verts[j], verts[i]
+		}
+	}
+
+	var result []notamath.Po2
+
+	for len(verts) > 3 {
+		earFound := false
+
+		for i := 0; i < len(verts); i++ {
+			prev := verts[(i-1+len(verts))%len(verts)]
+			curr := verts[i]
+			next := verts[(i+1)%len(verts)]
+
+			if IsEar(prev, curr, next, verts) {
+				result = append(result, prev, curr, next)
+
+				verts = append(verts[:i], verts[i+1:]...)
+				earFound = true
+				break
+			}
+		}
+
+		if !earFound {
+			return nil
+		}
+	}
+
+	result = append(result, verts[0], verts[1], verts[2])
+	return result
 }
