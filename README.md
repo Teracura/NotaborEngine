@@ -12,7 +12,7 @@ an phsyics engine made in **golang** designed to make game dev easier by providi
 - ## Native Multi-Window support
   a window can be created via a config, each window has one `RenderLoop` and zero or more `FixedHzLoop`, that way we can ensure separation between windows
   different window modes, `Windowed`, `BorderlessWindowed` and `FullScreen`
-- ##Notagl
- It contains gl2 to render 2D objects and gl3 to render 3D objects. polygon is used to store po2 and draw shapes such as squares, rectangles, circles, and other polygons. mesh is used to store po3 and draw 3D shapes. render is responsible for rendering 2D or 3D objects using clean and easy-to-read code.
+- ## Notagl
+  It contains gl2 to render 2D objects and gl3 to render 3D objects. polygon is used to store po2 and draw shapes such as squares, rectangles, circles, and other polygons. mesh is used to store po3 and draw 3D shapes. render is responsible for rendering 2D or 3D objects using clean and easy-to-read code.
 - ## Notamath
   contains mat3 to perform all 2D transformations using homogeneous coordinates. mat4 is similar to mat3, but the difference is that mat4 is specialized for 3D transformations. po2 is used to store 2D coordinates to draw polygons. po3 is similar to po2, but it is used to draw any 3D shape. vec2 and vec3 are used for collision tracking with the MTV (Minimum Translation Vector) algorithm.
