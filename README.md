@@ -1,5 +1,5 @@
 # Notabor Engine
-an phsyics engine made in **goland** designed to make game dev easier by providing the following:
+an phsyics engine made in **golang** designed to make game dev easier by providing the following:
 - ## Function based architecture
   there is a `Runnable` type function, which is a function that can return an error.
   
