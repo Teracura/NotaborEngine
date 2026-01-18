@@ -16,3 +16,41 @@ an phsyics engine made in **golang** designed to make game dev easier by providi
   It contains gl2 to render 2D objects and gl3 to render 3D objects. polygon is used to store po2 and draw shapes such as squares, rectangles, circles, and other polygons. mesh is used to store po3 and draw 3D shapes. render is responsible for rendering 2D or 3D objects using clean and easy-to-read code.
 - ## Notamath
   contains mat3 to perform all 2D transformations using homogeneous coordinates. mat4 is similar to mat3, but the difference is that mat4 is specialized for 3D transformations. po2 is used to store 2D coordinates to draw polygons. po3 is similar to po2, but it is used to draw any 3D shape. vec2 and vec3 are used for collision tracking with the MTV (Minimum Translation Vector) algorithm.
+
+# Documentation
+
+## notacore
+  - ### Objects:
+    - `Settings` type: `struct`
+    - `Engine` type: `struct`
+    - `Runnable` type: `func() error`
+    - `FixedHzLoop` type: `struct`
+    - `RenderLoop` type: `struct`  
+    - `WindowConfig` type: `struct`
+    - `WindowType` type: `enum`
+    - `WindowRuntime2D` type: `struct`
+    - `WindowRunTime3D` type: `struct`
+    - `GlfwWindow2D` type: `struct`
+    - `GlfwWindow3D` type: `struct`
+    - `GLFWWindowManager` type: `struct`
+    
+  - ### Settings
+    - `Vsync` type `bool`
+  - ### Engine
+    Handles the main engine operations like looping, initializing windows etc 
+    - #### content
+      - `Windows2D` type: `[]*GlfwWindow2D`
+      - `Windows3D` type: `[]*GlfwWindow3D`
+      - `Settings` type: `*Settings`
+      - `WindowManager` type: `*GLFWWindowManager`
+    - #### functions
+      - `func (e *Engine) Run() error` runs all loops associated with all windows and keeps track of the lifecycle
+      - `func (e *Engine) AllWindowsClosed() bool` checks if all windows are closed
+      - `func (e *Engine) Shutdown()` terminates GLFW (stops the whole program)
+      - `func (e *Engine) InitPlatform() error` locks the primary thread for rendering, uses the correct OS files and initializes window manager (MUST BE DONE BEFORE USING ANY ENGINE OPERATIONS)
+      - `func (e *Engine) CreateWindow2D(cfg WindowConfig) (*GlfwWindow2D, error)` creates a new window which has a 2D renderer and GLBackend2D, and adds its pointer to `Windows2D`
+      - `func (e *Engine) CreateWindow3D(cfg WindowConfig) (*GlfwWindow3D, error)` creates a new window which has a 3D renderer and GLBackend3D, and adds its pointer to `Windows3D`
+  - ### Runnable
+    signature: `type Runnable func() error` used by the engine to run logic
+  
+
