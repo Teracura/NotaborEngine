@@ -52,5 +52,32 @@ a phsyics engine made in **golang** designed to make game dev easier by providin
       - `func (e *Engine) CreateWindow3D(cfg WindowConfig) (*GlfwWindow3D, error)` creates a new window which has a 3D renderer and GLBackend3D, and adds its pointer to `Windows3D`
   - ### Runnable
     signature: `type Runnable func() error` used by the engine to run logic
-  
-
+- ##Notagl
+- Rendering shapes in 2D and 3D 
+- ###Objects
+- `DrawOrder2D` type: `struct`
+- `Renderer2D` type `struct`
+- `Shape2D` type `interface`
+- `vertexFormat2D` type `struct`
+- `GLBackend2D` type  `struct`
+- `DrawOrder3D` type: `struct`
+- `Renderer3D` type `struct`
+- `Shape3D` type `interface`
+- `vertexFormat3D` type `struct`
+- `GLBackend3D` type  `struct`
+- `Polygon` type `struct`
+- `Renderer[T any]` type `interface`
+- #### functions
+- `func (r *Renderer2D) Begin()`
+- `func (r *Renderer2D) Submit(s Shape2D, alpha float32) `
+- `func (b *GLBackend2D) Init()`
+- `func (b *GLBackend2D) BindVao()`
+- `func (b *GLBackend2D) UploadData(vertices interface{})`
+- `func (r *Renderer2D) Flush(backend *GLBackend2D)`
+- `func (r *Renderer3D) Begin()`
+- `func (r *Renderer3D) Submit(s Shape3D)`
+- `func (b *GLBackend3D) Init()`
+- `func (b *GLBackend3D) BindVao()`
+- `func (b *GLBackend3D) UploadData(vertices interface{})`
+- `func (r *Renderer3D) Flush(backend *GLBackend3D)`
+- `func (p Polygon) AddToOrders(orders *[]DrawOrder2D)`
