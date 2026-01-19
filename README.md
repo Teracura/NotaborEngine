@@ -39,8 +39,7 @@ a phsyics engine made in **golang** designed to make game dev easier by providin
   - ### Engine
     Handles the main engine operations like looping, initializing windows etc 
     - #### content
-      - `Windows2D` type: `[]*GlfwWindow2D`
-      - `Windows3D` type: `[]*GlfwWindow3D`
+      - `Windows` type `[]Window`
       - `Settings` type: `*Settings`
       - `WindowManager` type: `*GLFWWindowManager`
     - #### functions
