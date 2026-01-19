@@ -110,3 +110,26 @@ a phsyics engine made in **golang** designed to make game dev easier by providin
     - `func (w *GlfwWindow2D) SetWindowed(x, y, width, height int) error` sets window to windowed mode
 - ### GlfwWindow3D
   the same as GlfwWindow2D, except `RunTime` is of type: `windowRunTime3D`
+
+## notagl
+  - ### Objects
+    - `DrawOrder2D` type: `struct`
+    - `DrawOrder3D` type: `struct`
+    - `Renderer2D` type: `struct`
+    - `Renderer3D` type: `struct`
+    - `Polygon` type: `struct`
+    - `func Triangulate2D(polygon []notamath.Po2) []notamath.Po2` type: `function`. Takes a list of points of a polygon, and links all vertices via triangles for GPU rendering
+  - ### DrawOrder2D
+    - #### content
+      - `Vertices` type: `[]notamath.Po2` vertices of the polygon drawn
+  - ### DrawOrder3D
+    - #### content
+      - `Vertices` type: `[]notamath.Po3` vertices of the mesh drawn
+  - ### Renderer2D
+    - #### content
+      - `Orders` type: `[]DrawOrder2D`
+    - #### functions
+      - `func (r *Renderer2D) Submit(p Polygon, alpha float32)` creates a new order and appends to the renderer orders it with the alpha value of the polygon (note: set alpha to 1 if static)
+  - ### Renderer3D
+    (WORK IN PROGRESS)
+##notamath
