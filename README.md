@@ -52,20 +52,23 @@ a phsyics engine made in **golang** designed to make game dev easier by providin
       - `func (e *Engine) CreateWindow3D(cfg WindowConfig) (*GlfwWindow3D, error)` creates a new window which has a 3D renderer and GLBackend3D, and adds its pointer to `Windows3D`
   - ### Runnable
     signature: `type Runnable func() error` used by the engine to run logic
-- ### Loop
+- ### FixedHzLoop
   Handles repeated execution of tasks such as logic updates.
   - #### content
     - `Loop` type `interface`
-    - `FixedHzLoop` type `struct` has `Runnables` type `[]Runnable` ,`Hz` type `float32`
-    - `RenderLoop` type `struct`  has `Runnables` type `[]Runnable` ,`MaxHz` type `float32`.`LastTime` type `time.Time`
-      
+    - `Runnables` type: `[]Runnable` ,`Hz` type `float32`
+    - `RenderLoop` type `struct`  has 
   - #### functions
     - `func (l *FixedHzLoop) Start()`Uses concurrency and multithreading  to execute runnables without blocking the main thread  
        Handles removal of runnables that return errors
     - `func (l *FixedHzLoop) Stop()`Stops the loop and cleans up resources
     - `func (l *FixedHzLoop) Remove(i int)`Removes a runnable from the loop by index.
-    - `func (r *RenderLoop) Start()`Initializes render timing and sets the initial render timestamp.
-    - `func (r *RenderLoop) Render()` Runs all Runnables only one time per call in main thread
     - `func (l *FixedHzLoop) Alpha(now time.Time) float32`Returns an interpolation factor between the last fixed logic tick and the next one,
     used for smooth rendering.
-
+- ### RenderLoop
+  - #### content
+    - `Runnables` type: `[]Runnable`
+    - `MaxHz` type: `float32`
+    - `LastTime` type: `time.Time`
+  - #### functions
+    - `func (r *RenderLoop) Render()` Runs all Runnables once per call in main thread
