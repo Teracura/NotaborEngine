@@ -133,8 +133,6 @@ func (e *Engine) InitPlatform() error {
 	return nil
 }
 
-var glInitialized bool
-
 func (e *Engine) CreateWindow2D(cfg WindowConfig) (*GlfwWindow2D, error) {
 	win, err := e.WindowManager.Create2D(cfg)
 	if err != nil {
