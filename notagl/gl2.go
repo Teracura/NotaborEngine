@@ -15,10 +15,6 @@ type Renderer2D struct {
 	Orders []DrawOrder2D
 }
 
-func (r *Renderer2D) Begin() {
-	r.Orders = r.Orders[:0]
-}
-
 func (r *Renderer2D) Submit(p Polygon, alpha float32) {
 	var temp []DrawOrder2D
 

@@ -71,7 +71,6 @@ func addRunnables(win *notacore.GlfwWindow2D, shaderProgram uint32) {
 	logicLoop := win.Config.LogicLoops[0]
 	renderLoop := win.Config.RenderLoop
 	renderer := win.RunTime.Renderer
-
 	logicLoop.Runnables = append(logicLoop.Runnables, func() error {
 		rect.Transform.Snapshot()
 		rect.Transform.RotateBy(0.01)
@@ -82,7 +81,6 @@ func addRunnables(win *notacore.GlfwWindow2D, shaderProgram uint32) {
 		gl.UseProgram(shaderProgram)
 		alpha := logicLoop.Alpha(time.Now())
 
-		renderer.Begin()
 		renderer.Submit(rect, alpha)
 		return nil
 	})
