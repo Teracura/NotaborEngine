@@ -8,12 +8,6 @@ import (
 	"github.com/go-gl/gl/v4.6-core/gl"
 )
 
-type Loop interface {
-	Start()
-	Stop()
-	Remove(int)
-}
-
 type Runnable func() error
 
 type FixedHzLoop struct {
@@ -98,10 +92,6 @@ func (l *FixedHzLoop) Remove(i int) {
 	l.Runnables[i] = l.Runnables[last]
 	l.Runnables[last] = nil
 	l.Runnables = l.Runnables[:last]
-}
-
-func (r *RenderLoop) Start() {
-	r.LastTime = time.Now()
 }
 
 func (r *RenderLoop) Render() {

@@ -31,7 +31,7 @@ func main() {
 	cfg1 := notacore.WindowConfig{
 		X:          100,
 		Y:          100,
-		W:          800,
+		W:          600,
 		H:          600,
 		Title:      "Test Window 1",
 		Resizable:  true,
@@ -59,11 +59,10 @@ func main() {
 func addRunnables(win *notacore.GlfwWindow2D, shaderProgram uint32) {
 	rect := notagl.Polygon{
 		Vertices: []notamath.Po2{
-			{0, 0},
-			{1, 0},
-			{1, 1},
-			{0, 1},
-			{-1, -1},
+			{-0.5, -0.5},
+			{0.5, -0.5},
+			{0.5, 0.5},
+			{-0.5, 0.5},
 		},
 		Transform: notamath.NewTransform2D(),
 	}
@@ -71,7 +70,6 @@ func addRunnables(win *notacore.GlfwWindow2D, shaderProgram uint32) {
 
 	logicLoop := win.Config.LogicLoops[0]
 	renderLoop := win.Config.RenderLoop
-	backend := win.RunTime.Backend
 	renderer := win.RunTime.Renderer
 
 	logicLoop.Runnables = append(logicLoop.Runnables, func() error {
@@ -86,7 +84,6 @@ func addRunnables(win *notacore.GlfwWindow2D, shaderProgram uint32) {
 
 		renderer.Begin()
 		renderer.Submit(rect, alpha)
-		renderer.Flush(backend)
 		return nil
 	})
 }
