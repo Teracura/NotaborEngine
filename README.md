@@ -28,11 +28,10 @@ a phsyics engine made in **golang** designed to make game dev easier by providin
     - `RenderLoop` type: `struct`  
     - `WindowConfig` type: `struct`
     - `WindowType` type: `enum`
-    - `WindowRuntime2D` type: `struct`
-    - `WindowRunTime3D` type: `struct`
+    - `windowRuntime2D` type: `struct`
+    - `windowRunTime3D` type: `struct`
     - `GlfwWindow2D` type: `struct`
     - `GlfwWindow3D` type: `struct`
-    - `GLFWWindowManager` type: `struct`
     
   - ### Settings
     - `Vsync` type `bool`
@@ -59,11 +58,10 @@ a phsyics engine made in **golang** designed to make game dev easier by providin
     - `Runnables` type: `[]Runnable`
     - `Hz` type `float32`
   - #### functions
-    - `func (l *FixedHzLoop) Start()`Uses concurrency and multithreading  to execute runnables without blocking the main thread  
-       Handles removal of runnables that return errors
-    - `func (l *FixedHzLoop) Stop()`Stops the loop and cleans up resources
-    - `func (l *FixedHzLoop) Remove(i int)`Removes a runnable from the loop by index.
-    - `func (l *FixedHzLoop) Alpha(now time.Time) float32`Returns an interpolation factor between the last fixed logic tick and the next one,
+    - `func (l *FixedHzLoop) Start()` Uses concurrency and multithreading  to execute runnables without blocking the main thread and handles removal of runnables that return errors
+    - `func (l *FixedHzLoop) Stop()` Stops the loop and cleans up resources
+    - `func (l *FixedHzLoop) Remove(i int)` Removes a runnable from the loop by index.
+    - `func (l *FixedHzLoop) Alpha(now time.Time) float32` Returns an interpolation factor between the last fixed logic tick and the next one,
     used for smooth rendering.
 - ### RenderLoop
   - #### content
@@ -93,4 +91,22 @@ a phsyics engine made in **golang** designed to make game dev easier by providin
      - `Renderer` type: `*notagl.Renderer2D`
 - ### windowRuntime3D
    - #### content
-     - `Renderer` type: `*notagl.Renderer3D` 
+     - `Renderer` type: `*notagl.Renderer3D`
+- ### GlfwWindow2D
+  - #### content
+    - `ID` type: `int`
+    - `Handle` type: `*glfw.Window`
+    - `Config` type:  `WindowConfig`
+    - `RunTime` type: `windowRunTime2D`
+  - #### functions
+    - `func (w *GlfwWindow2D) MakeContextCurrent()` makes the window marked as `current` for glfw
+    - `func (w *GlfwWindow2D) SwapBuffers()` swaps the buffers of the window
+    - `func (w *GlfwWindow2D) ShouldClose() bool` checks if window should close
+    - `func (w *GlfwWindow2D) Close()` sets `ShouldClose` to true
+    - `func (w *GlfwWindow2D) Size() (int, int)` returns width and height of the window
+    - `func (w *GlfwWindow2D) Position() (int, int)` returns the x and y coordinates of the window origin
+    - `func (w *GlfwWindow2D) SetFullscreen(fullscreen bool) error` sets window to fullscreen mode
+    - `func (w *GlfwWindow2D) SetBorderless(borderless bool) error` sets window to borderless mode
+    - `func (w *GlfwWindow2D) SetWindowed(x, y, width, height int) error` sets window to windowed mode
+- ### GlfwWindow3D
+  the same as GlfwWindow2D, except `RunTime` is of type: `windowRunTime3D`
