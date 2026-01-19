@@ -18,7 +18,7 @@ type Engine struct {
 	Windows2D     []*GlfwWindow2D
 	Windows3D     []*GlfwWindow3D
 	Settings      *Settings
-	WindowManager *GLFWWindowManager
+	WindowManager *windowManager
 	running       bool
 }
 
@@ -30,13 +30,13 @@ func (e *Engine) Run() error {
 		for _, loop := range w.Config.LogicLoops {
 			loop.Start()
 		}
-		w.RunTime.LastRender = time.Now()
+		w.RunTime.lastRender = time.Now()
 	}
 	for _, w := range e.Windows3D {
 		for _, loop := range w.Config.LogicLoops {
 			loop.Start()
 		}
-		w.RunTime.LastRender = time.Now()
+		w.RunTime.lastRender = time.Now()
 	}
 
 	for e.running && !e.AllWindowsClosed() {
@@ -48,17 +48,17 @@ func (e *Engine) Run() error {
 			if win.ShouldClose() {
 				continue
 			}
-			elapsed := now.Sub(win.RunTime.LastRender)
-			if elapsed < win.RunTime.TargetDt {
+			elapsed := now.Sub(win.RunTime.lastRender)
+			if elapsed < win.RunTime.targetDt {
 				continue
 			}
-			win.RunTime.LastRender = now
+			win.RunTime.lastRender = now
 
 			win.MakeContextCurrent()
 
 			win.RunTime.Renderer.Begin()
 			win.Config.RenderLoop.Render()
-			win.RunTime.Renderer.Flush(win.RunTime.Backend)
+			win.RunTime.Renderer.Flush(win.RunTime.backend)
 
 			win.SwapBuffers()
 		}
@@ -68,17 +68,17 @@ func (e *Engine) Run() error {
 			if win.ShouldClose() {
 				continue
 			}
-			elapsed := now.Sub(win.RunTime.LastRender)
-			if elapsed < win.RunTime.TargetDt {
+			elapsed := now.Sub(win.RunTime.lastRender)
+			if elapsed < win.RunTime.targetDt {
 				continue
 			}
-			win.RunTime.LastRender = now
+			win.RunTime.lastRender = now
 
 			win.MakeContextCurrent()
 
 			win.RunTime.Renderer.Begin()
 			win.Config.RenderLoop.Render()
-			win.RunTime.Renderer.Flush(win.RunTime.Backend)
+			win.RunTime.Renderer.Flush(win.RunTime.backend)
 
 			win.SwapBuffers()
 		}
@@ -124,9 +124,20 @@ func (e *Engine) InitPlatform() error {
 		return err
 	}
 
-	wm, err := NewGLFWWindowManager()
-	if err != nil {
+	if err := glfw.Init(); err != nil {
 		return err
+	}
+
+	glfw.WindowHint(glfw.Resizable, glfw.True)
+	glfw.WindowHint(glfw.ContextVersionMajor, 4)
+	glfw.WindowHint(glfw.ContextVersionMinor, 6)
+	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
+	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
+
+	wm := &windowManager{
+		windows2D: []*GlfwWindow2D{},
+		windows3D: []*GlfwWindow3D{},
+		nextID:    0,
 	}
 
 	e.WindowManager = wm
@@ -142,7 +153,7 @@ func (e *Engine) CreateWindow2D(cfg WindowConfig) (*GlfwWindow2D, error) {
 	if err := gl.Init(); err != nil {
 		return nil, err
 	}
-	win.RunTime.Backend.Init()
+	win.RunTime.backend.Init()
 	e.Windows2D = append(e.Windows2D, win)
 	return win, nil
 }
@@ -156,7 +167,7 @@ func (e *Engine) CreateWindow3D(cfg WindowConfig) (*GlfwWindow3D, error) {
 	if err := gl.Init(); err != nil {
 		return nil, err
 	}
-	win.RunTime.Backend.Init()
+	win.RunTime.backend.Init()
 	e.Windows3D = append(e.Windows3D, win)
 	return win, nil
 }

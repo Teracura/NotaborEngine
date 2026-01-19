@@ -25,21 +25,19 @@ type WindowConfig struct {
 	Type       WindowType
 	LogicLoops []*FixedHzLoop
 	RenderLoop *RenderLoop
-
-	autoStartLoops bool
 }
 
-type WindowRuntime2D struct {
-	LastRender time.Time
-	TargetDt   time.Duration
-	Backend    *notagl.GLBackend2D
+type windowRunTime2D struct {
+	lastRender time.Time
+	targetDt   time.Duration
+	backend    *notagl.GLBackend2D
 	Renderer   *notagl.Renderer2D
 }
 
-type WindowRuntime3D struct {
-	LastRender time.Time
-	TargetDt   time.Duration
-	Backend    *notagl.GLBackend3D
+type windowRuntime3D struct {
+	lastRender time.Time
+	targetDt   time.Duration
+	backend    *notagl.GLBackend3D
 	Renderer   *notagl.Renderer3D
 }
 
@@ -47,42 +45,24 @@ type GlfwWindow2D struct {
 	ID      int
 	Handle  *glfw.Window
 	Config  WindowConfig
-	RunTime WindowRuntime2D
+	RunTime windowRunTime2D
 }
 
 type GlfwWindow3D struct {
 	ID      int
 	Handle  *glfw.Window
 	Config  WindowConfig
-	RunTime WindowRuntime3D
+	RunTime windowRuntime3D
 }
 
-type GLFWWindowManager struct {
+type windowManager struct {
 	mu        sync.Mutex
 	windows2D []*GlfwWindow2D
 	windows3D []*GlfwWindow3D
 	nextID    int
 }
 
-func NewGLFWWindowManager() (*GLFWWindowManager, error) {
-	if err := glfw.Init(); err != nil {
-		return nil, err
-	}
-
-	glfw.WindowHint(glfw.Resizable, glfw.True)
-	glfw.WindowHint(glfw.ContextVersionMajor, 4)
-	glfw.WindowHint(glfw.ContextVersionMinor, 6)
-	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
-	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
-
-	return &GLFWWindowManager{
-		windows2D: []*GlfwWindow2D{},
-		windows3D: []*GlfwWindow3D{},
-		nextID:    0,
-	}, nil
-}
-
-func (wm *GLFWWindowManager) Create2D(cfg WindowConfig) (*GlfwWindow2D, error) {
+func (wm *windowManager) Create2D(cfg WindowConfig) (*GlfwWindow2D, error) {
 	wm.mu.Lock()
 	defer wm.mu.Unlock()
 
@@ -174,10 +154,10 @@ func (wm *GLFWWindowManager) Create2D(cfg WindowConfig) (*GlfwWindow2D, error) {
 		ID:     wm.nextID,
 		Handle: handle,
 		Config: cfg,
-		RunTime: WindowRuntime2D{
-			LastRender: time.Now(),
-			TargetDt:   time.Second / time.Duration(cfg.RenderLoop.MaxHz),
-			Backend:    &notagl.GLBackend2D{},
+		RunTime: windowRunTime2D{
+			lastRender: time.Now(),
+			targetDt:   time.Second / time.Duration(cfg.RenderLoop.MaxHz),
+			backend:    &notagl.GLBackend2D{},
 			Renderer:   &notagl.Renderer2D{},
 		},
 	}
@@ -187,7 +167,7 @@ func (wm *GLFWWindowManager) Create2D(cfg WindowConfig) (*GlfwWindow2D, error) {
 	return win, nil
 }
 
-func (wm *GLFWWindowManager) Create3D(cfg WindowConfig) (*GlfwWindow3D, error) {
+func (wm *windowManager) Create3D(cfg WindowConfig) (*GlfwWindow3D, error) {
 	wm.mu.Lock()
 	defer wm.mu.Unlock()
 
@@ -276,10 +256,10 @@ func (wm *GLFWWindowManager) Create3D(cfg WindowConfig) (*GlfwWindow3D, error) {
 		ID:     wm.nextID,
 		Handle: handle,
 		Config: cfg,
-		RunTime: WindowRuntime3D{
-			LastRender: time.Now(),
-			TargetDt:   time.Second / time.Duration(cfg.RenderLoop.MaxHz),
-			Backend:    &notagl.GLBackend3D{},
+		RunTime: windowRuntime3D{
+			lastRender: time.Now(),
+			targetDt:   time.Second / time.Duration(cfg.RenderLoop.MaxHz),
+			backend:    &notagl.GLBackend3D{},
 			Renderer:   &notagl.Renderer3D{},
 		},
 	}
@@ -289,20 +269,8 @@ func (wm *GLFWWindowManager) Create3D(cfg WindowConfig) (*GlfwWindow3D, error) {
 	return win, nil
 }
 
-func (wm *GLFWWindowManager) PollEvents() {
+func (wm *windowManager) PollEvents() {
 	glfw.PollEvents()
-}
-
-type Window interface {
-	MakeContextCurrent()
-	SwapBuffers()
-	ShouldClose() bool
-	Close()
-	Size() (int, int)
-	Position() (int, int)
-	SetFullscreen(fullscreen bool) error
-	SetBorderless(borderless bool) error
-	SetWindowed(x, y, width, height int) error
 }
 
 func (w *GlfwWindow2D) MakeContextCurrent()  { w.Handle.MakeContextCurrent() }
@@ -331,6 +299,8 @@ func (w *GlfwWindow2D) SetFullscreen(fullscreen bool) error {
 		w.Handle.SetMonitor(nil, 100, 100, 800, 600, videoMode.RefreshRate)
 	}
 
+	w.Config.Type = Fullscreen
+
 	return nil
 }
 func (w *GlfwWindow2D) SetBorderless(borderless bool) error {
@@ -354,12 +324,16 @@ func (w *GlfwWindow2D) SetBorderless(borderless bool) error {
 		w.Handle.SetAttrib(glfw.Decorated, glfw.True)
 	}
 
+	w.Config.Type = Borderless
+
 	return nil
 }
 
 func (w *GlfwWindow2D) SetWindowed(x, y, width, height int) error {
 	w.Handle.SetMonitor(nil, x, y, width, height, glfw.DontCare)
 	w.Handle.SetAttrib(glfw.Decorated, glfw.True)
+	w.Config.Type = Windowed
+
 	return nil
 }
 
@@ -387,6 +361,8 @@ func (w *GlfwWindow3D) SetFullscreen(fullscreen bool) error {
 		w.Handle.SetMonitor(nil, 100, 100, 800, 600, videoMode.RefreshRate)
 	}
 
+	w.Config.Type = Fullscreen
+
 	return nil
 }
 
@@ -411,16 +387,20 @@ func (w *GlfwWindow3D) SetBorderless(borderless bool) error {
 		w.Handle.SetAttrib(glfw.Decorated, glfw.True)
 	}
 
+	w.Config.Type = Borderless
+
 	return nil
 }
 
 func (w *GlfwWindow3D) SetWindowed(x, y, width, height int) error {
 	w.Handle.SetMonitor(nil, x, y, width, height, glfw.DontCare)
 	w.Handle.SetAttrib(glfw.Decorated, glfw.True)
+	w.Config.Type = Windowed
+
 	return nil
 }
 
-func (wm *GLFWWindowManager) Destroy2D(win *GlfwWindow2D) {
+func (wm *windowManager) Destroy2D(win *GlfwWindow2D) {
 	wm.mu.Lock()
 	defer wm.mu.Unlock()
 	for i, w := range wm.windows2D {
@@ -432,7 +412,7 @@ func (wm *GLFWWindowManager) Destroy2D(win *GlfwWindow2D) {
 	}
 }
 
-func (wm *GLFWWindowManager) Destroy3D(win *GlfwWindow3D) {
+func (wm *windowManager) Destroy3D(win *GlfwWindow3D) {
 	wm.mu.Lock()
 	defer wm.mu.Unlock()
 	for i, w := range wm.windows3D {
@@ -442,71 +422,4 @@ func (wm *GLFWWindowManager) Destroy3D(win *GlfwWindow3D) {
 			break
 		}
 	}
-}
-
-func (wc *WindowConfig) AddLogicLoop(loop *FixedHzLoop) {
-	wc.LogicLoops = append(wc.LogicLoops, loop)
-}
-func (wm *GLFWWindowManager) ToggleFullscreen2D(win *GlfwWindow2D) error {
-	currentMode := win.Config.Type
-	if currentMode == Fullscreen {
-		if err := win.SetWindowed(100, 100, 800, 600); err != nil {
-			return err
-		}
-		win.Config.Type = Windowed
-	} else {
-		if err := win.SetFullscreen(true); err != nil {
-			return err
-		}
-		win.Config.Type = Fullscreen
-	}
-	return nil
-}
-
-func (wm *GLFWWindowManager) ToggleBorderless2D(win *GlfwWindow2D) error {
-	currentMode := win.Config.Type
-	if currentMode == Borderless {
-		if err := win.SetWindowed(100, 100, 800, 600); err != nil {
-			return err
-		}
-		win.Config.Type = Windowed
-	} else {
-		if err := win.SetBorderless(true); err != nil {
-			return err
-		}
-		win.Config.Type = Borderless
-	}
-	return nil
-}
-
-func (wm *GLFWWindowManager) ToggleFullscreen3D(win *GlfwWindow3D) error {
-	currentMode := win.Config.Type
-	if currentMode == Fullscreen {
-		if err := win.SetWindowed(100, 100, 800, 600); err != nil {
-			return err
-		}
-		win.Config.Type = Windowed
-	} else {
-		if err := win.SetFullscreen(true); err != nil {
-			return err
-		}
-		win.Config.Type = Fullscreen
-	}
-	return nil
-}
-
-func (wm *GLFWWindowManager) ToggleBorderless3D(win *GlfwWindow3D) error {
-	currentMode := win.Config.Type
-	if currentMode == Borderless {
-		if err := win.SetWindowed(100, 100, 800, 600); err != nil {
-			return err
-		}
-		win.Config.Type = Windowed
-	} else {
-		if err := win.SetBorderless(true); err != nil {
-			return err
-		}
-		win.Config.Type = Borderless
-	}
-	return nil
 }
