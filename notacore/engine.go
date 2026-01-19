@@ -15,8 +15,7 @@ type Settings struct {
 }
 
 type Engine struct {
-	Windows2D     []*GlfwWindow2D
-	Windows3D     []*GlfwWindow3D
+	Windows       []Window
 	Settings      *Settings
 	WindowManager *windowManager
 	running       bool
@@ -26,72 +25,39 @@ func (e *Engine) Run() error {
 	e.running = true
 
 	// Start all logic loops
-	for _, w := range e.Windows2D {
-		for _, loop := range w.Config.LogicLoops {
+	for _, w := range e.Windows {
+		cfg := w.GetConfig()
+		for _, loop := range cfg.LogicLoops {
 			loop.Start()
 		}
-		w.RunTime.lastRender = time.Now()
-	}
-	for _, w := range e.Windows3D {
-		for _, loop := range w.Config.LogicLoops {
-			loop.Start()
-		}
-		w.RunTime.lastRender = time.Now()
+		w.GetRuntime().lastRender = time.Now()
 	}
 
 	for e.running && !e.AllWindowsClosed() {
 		e.WindowManager.PollEvents()
 		now := time.Now()
 
-		// Render 2D windows
-		for _, win := range e.Windows2D {
+		for _, win := range e.Windows {
 			if win.ShouldClose() {
 				continue
 			}
-			elapsed := now.Sub(win.RunTime.lastRender)
-			if elapsed < win.RunTime.targetDt {
+
+			rt := win.GetRuntime()
+			elapsed := now.Sub(rt.lastRender)
+			if elapsed < rt.targetDt {
 				continue
 			}
-			win.RunTime.lastRender = now
+			rt.lastRender = now
 
 			win.MakeContextCurrent()
-
-			win.RunTime.Renderer.Orders = win.RunTime.Renderer.Orders[:0]
-			win.Config.RenderLoop.Render()
-			win.RunTime.Renderer.Flush(win.RunTime.backend)
-
-			win.SwapBuffers()
-		}
-
-		// Render 3D windows
-		for _, win := range e.Windows3D {
-			if win.ShouldClose() {
-				continue
-			}
-			elapsed := now.Sub(win.RunTime.lastRender)
-			if elapsed < win.RunTime.targetDt {
-				continue
-			}
-			win.RunTime.lastRender = now
-
-			win.MakeContextCurrent()
-
-			win.RunTime.Renderer.Orders = win.RunTime.Renderer.Orders[:0]
-			win.Config.RenderLoop.Render()
-			win.RunTime.Renderer.Flush(win.RunTime.backend)
-
+			win.RunRenderer()
 			win.SwapBuffers()
 		}
 	}
 
 	// Stop logic loops
-	for _, w := range e.Windows2D {
-		for _, loop := range w.Config.LogicLoops {
-			loop.Stop()
-		}
-	}
-	for _, w := range e.Windows3D {
-		for _, loop := range w.Config.LogicLoops {
+	for _, w := range e.Windows {
+		for _, loop := range w.GetConfig().LogicLoops {
 			loop.Stop()
 		}
 	}
@@ -100,12 +66,7 @@ func (e *Engine) Run() error {
 }
 
 func (e *Engine) AllWindowsClosed() bool {
-	for _, w := range e.Windows2D {
-		if !w.ShouldClose() {
-			return false
-		}
-	}
-	for _, w := range e.Windows3D {
+	for _, w := range e.Windows {
 		if !w.ShouldClose() {
 			return false
 		}
@@ -154,7 +115,7 @@ func (e *Engine) CreateWindow2D(cfg WindowConfig) (*GlfwWindow2D, error) {
 		return nil, err
 	}
 	win.RunTime.backend.Init()
-	e.Windows2D = append(e.Windows2D, win)
+	e.Windows = append(e.Windows, win)
 	return win, nil
 }
 
@@ -168,7 +129,7 @@ func (e *Engine) CreateWindow3D(cfg WindowConfig) (*GlfwWindow3D, error) {
 		return nil, err
 	}
 	win.RunTime.backend.Init()
-	e.Windows3D = append(e.Windows3D, win)
+	e.Windows = append(e.Windows, win)
 	return win, nil
 }
 

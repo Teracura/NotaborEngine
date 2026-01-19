@@ -36,12 +36,16 @@ type GLBackend3D struct {
 
 func (b *GLBackend3D) Init() {
 	b.format = vertexFormat3D{dimension: 3, stride: int32(unsafe.Sizeof(notamath.Po3{}))}
-	gl.CreateVertexArrays(1, &b.vao)
-	gl.CreateBuffers(1, &b.vbo)
-	gl.VertexArrayVertexBuffer(b.vao, 0, b.vbo, 0, b.format.stride)
-	gl.VertexArrayAttribFormat(b.vao, 0, b.format.dimension, gl.FLOAT, false, 0)
-	gl.VertexArrayAttribBinding(b.vao, 0, 0)
-	gl.EnableVertexArrayAttrib(b.vao, 0)
+	provideGlSettings(&b.vao, &b.vbo, b.format.stride, b.format.dimension)
+}
+
+func provideGlSettings(vao *uint32, vbo *uint32, stride int32, dimension int32) {
+	gl.CreateVertexArrays(1, vao)
+	gl.CreateBuffers(1, vbo)
+	gl.VertexArrayVertexBuffer(*vao, 0, *vbo, 0, stride)
+	gl.VertexArrayAttribFormat(*vao, 0, dimension, gl.FLOAT, false, 0)
+	gl.VertexArrayAttribBinding(*vao, 0, 0)
+	gl.EnableVertexArrayAttrib(*vao, 0)
 }
 
 func (b *GLBackend3D) BindVao() {
