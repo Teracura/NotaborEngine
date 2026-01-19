@@ -132,4 +132,4 @@ a phsyics engine made in **golang** designed to make game dev easier by providin
       - `func (r *Renderer2D) Submit(p Polygon, alpha float32)` creates a new order and appends to the renderer orders it with the alpha value of the polygon (note: set alpha to 1 if static)
   - ### Renderer3D
     (WORK IN PROGRESS)
-##notamath
+## notamath
