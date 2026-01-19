@@ -52,32 +52,20 @@ a phsyics engine made in **golang** designed to make game dev easier by providin
       - `func (e *Engine) CreateWindow3D(cfg WindowConfig) (*GlfwWindow3D, error)` creates a new window which has a 3D renderer and GLBackend3D, and adds its pointer to `Windows3D`
   - ### Runnable
     signature: `type Runnable func() error` used by the engine to run logic
-- ##Notagl
-- Rendering shapes in 2D and 3D 
-- ###Objects
-- `DrawOrder2D` type: `struct`
-- `Renderer2D` type `struct`
-- `Shape2D` type `interface`
-- `vertexFormat2D` type `struct`
-- `GLBackend2D` type  `struct`
-- `DrawOrder3D` type: `struct`
-- `Renderer3D` type `struct`
-- `Shape3D` type `interface`
-- `vertexFormat3D` type `struct`
-- `GLBackend3D` type  `struct`
-- `Polygon` type `struct`
-- `Renderer[T any]` type `interface`
-- #### functions
-- `func (r *Renderer2D) Begin()`
-- `func (r *Renderer2D) Submit(s Shape2D, alpha float32) `
-- `func (b *GLBackend2D) Init()`
-- `func (b *GLBackend2D) BindVao()`
-- `func (b *GLBackend2D) UploadData(vertices interface{})`
-- `func (r *Renderer2D) Flush(backend *GLBackend2D)`
-- `func (r *Renderer3D) Begin()`
-- `func (r *Renderer3D) Submit(s Shape3D)`
-- `func (b *GLBackend3D) Init()`
-- `func (b *GLBackend3D) BindVao()`
-- `func (b *GLBackend3D) UploadData(vertices interface{})`
-- `func (r *Renderer3D) Flush(backend *GLBackend3D)`
-- `func (p Polygon) AddToOrders(orders *[]DrawOrder2D)`
+- ### Loop
+  Handles repeated execution of tasks such as logic updates.
+  - #### content
+    - `Loop` type `interface`
+    - `FixedHzLoop` type `struct` has `Runnables` type `[]Runnable` ,`Hz` type `float32`
+    - `RenderLoop` type `struct`  has `Runnables` type `[]Runnable` ,`MaxHz` type `float32`.`LastTime` type `time.Time`
+      
+  - #### functions
+    - `func (l *FixedHzLoop) Start()`Uses concurrency and multithreading  to execute runnables without blocking the main thread  
+       Handles removal of runnables that return errors
+    - `func (l *FixedHzLoop) Stop()`Stops the loop and cleans up resources
+    - `func (l *FixedHzLoop) Remove(i int)`Removes a runnable from the loop by index.
+    - `func (r *RenderLoop) Start()`Initializes render timing and sets the initial render timestamp.
+    - `func (r *RenderLoop) Render()` Runs all Runnables only one time per call in main thread
+    - `func (l *FixedHzLoop) Alpha(now time.Time) float32`Returns an interpolation factor between the last fixed logic tick and the next one,
+    used for smooth rendering.
+
