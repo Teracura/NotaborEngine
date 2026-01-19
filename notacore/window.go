@@ -27,18 +27,30 @@ type WindowConfig struct {
 	RenderLoop *RenderLoop
 }
 
-type windowRunTime2D struct {
+type Window interface {
+	GetConfig() *WindowConfig
+	GetRuntime() *WindowBaseRuntime
+	MakeContextCurrent()
+	SwapBuffers()
+	ShouldClose() bool
+	RunRenderer()
+}
+
+type WindowBaseRuntime struct {
 	lastRender time.Time
 	targetDt   time.Duration
-	backend    *notagl.GLBackend2D
-	Renderer   *notagl.Renderer2D
+}
+
+type windowRunTime2D struct {
+	WindowBaseRuntime
+	backend  *notagl.GLBackend2D
+	Renderer *notagl.Renderer2D
 }
 
 type windowRuntime3D struct {
-	lastRender time.Time
-	targetDt   time.Duration
-	backend    *notagl.GLBackend3D
-	Renderer   *notagl.Renderer3D
+	WindowBaseRuntime
+	backend  *notagl.GLBackend3D
+	Renderer *notagl.Renderer3D
 }
 
 type GlfwWindow2D struct {
@@ -48,11 +60,27 @@ type GlfwWindow2D struct {
 	RunTime windowRunTime2D
 }
 
+func (w *GlfwWindow2D) GetConfig() *WindowConfig       { return &w.Config }
+func (w *GlfwWindow2D) GetRuntime() *WindowBaseRuntime { return &w.RunTime.WindowBaseRuntime }
+func (w *GlfwWindow2D) RunRenderer() {
+	w.RunTime.Renderer.Orders = w.RunTime.Renderer.Orders[:0]
+	w.Config.RenderLoop.Render()
+	w.RunTime.Renderer.Flush(w.RunTime.backend)
+}
+
 type GlfwWindow3D struct {
 	ID      int
 	Handle  *glfw.Window
 	Config  WindowConfig
 	RunTime windowRuntime3D
+}
+
+func (w *GlfwWindow3D) GetConfig() *WindowConfig       { return &w.Config }
+func (w *GlfwWindow3D) GetRuntime() *WindowBaseRuntime { return &w.RunTime.WindowBaseRuntime }
+func (w *GlfwWindow3D) RunRenderer() {
+	w.RunTime.Renderer.Orders = w.RunTime.Renderer.Orders[:0]
+	w.Config.RenderLoop.Render()
+	w.RunTime.Renderer.Flush(w.RunTime.backend)
 }
 
 type windowManager struct {
@@ -155,10 +183,12 @@ func (wm *windowManager) Create2D(cfg WindowConfig) (*GlfwWindow2D, error) {
 		Handle: handle,
 		Config: cfg,
 		RunTime: windowRunTime2D{
-			lastRender: time.Now(),
-			targetDt:   time.Second / time.Duration(cfg.RenderLoop.MaxHz),
-			backend:    &notagl.GLBackend2D{},
-			Renderer:   &notagl.Renderer2D{},
+			WindowBaseRuntime: WindowBaseRuntime{
+				lastRender: time.Now(),
+				targetDt:   time.Second / time.Duration(cfg.RenderLoop.MaxHz),
+			},
+			backend:  &notagl.GLBackend2D{},
+			Renderer: &notagl.Renderer2D{},
 		},
 	}
 
@@ -257,10 +287,12 @@ func (wm *windowManager) Create3D(cfg WindowConfig) (*GlfwWindow3D, error) {
 		Handle: handle,
 		Config: cfg,
 		RunTime: windowRuntime3D{
-			lastRender: time.Now(),
-			targetDt:   time.Second / time.Duration(cfg.RenderLoop.MaxHz),
-			backend:    &notagl.GLBackend3D{},
-			Renderer:   &notagl.Renderer3D{},
+			WindowBaseRuntime: WindowBaseRuntime{
+				lastRender: time.Now(),
+				targetDt:   time.Second / time.Duration(cfg.RenderLoop.MaxHz),
+			},
+			backend:  &notagl.GLBackend3D{},
+			Renderer: &notagl.Renderer3D{},
 		},
 	}
 
