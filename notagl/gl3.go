@@ -15,10 +15,6 @@ type Renderer3D struct {
 	Orders []DrawOrder3D
 }
 
-func (r *Renderer3D) Begin() {
-	r.Orders = r.Orders[:0]
-}
-
 type Shape3D interface {
 	AddToOrders(orders *[]DrawOrder3D)
 }

@@ -56,7 +56,7 @@ func (e *Engine) Run() error {
 
 			win.MakeContextCurrent()
 
-			win.RunTime.Renderer.Begin()
+			win.RunTime.Renderer.Orders = win.RunTime.Renderer.Orders[:0]
 			win.Config.RenderLoop.Render()
 			win.RunTime.Renderer.Flush(win.RunTime.backend)
 
@@ -76,7 +76,7 @@ func (e *Engine) Run() error {
 
 			win.MakeContextCurrent()
 
-			win.RunTime.Renderer.Begin()
+			win.RunTime.Renderer.Orders = win.RunTime.Renderer.Orders[:0]
 			win.Config.RenderLoop.Render()
 			win.RunTime.Renderer.Flush(win.RunTime.backend)
 
