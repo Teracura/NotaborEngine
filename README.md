@@ -56,8 +56,8 @@ a phsyics engine made in **golang** designed to make game dev easier by providin
   Handles repeated execution of tasks such as logic updates.
   - #### content
     - `Loop` type `interface`
-    - `Runnables` type: `[]Runnable` ,`Hz` type `float32`
-    - `RenderLoop` type `struct`  has 
+    - `Runnables` type: `[]Runnable`
+    - `Hz` type `float32`
   - #### functions
     - `func (l *FixedHzLoop) Start()`Uses concurrency and multithreading  to execute runnables without blocking the main thread  
        Handles removal of runnables that return errors
@@ -72,3 +72,25 @@ a phsyics engine made in **golang** designed to make game dev easier by providin
     - `LastTime` type: `time.Time`
   - #### functions
     - `func (r *RenderLoop) Render()` Runs all Runnables once per call in main thread
+- ### WindowConfig
+  - #### content
+    - `X` type: `int` (X coordinate of the origin of the screen)
+    - `Y` type: `int` (Y coordinate of the origin of the screen)
+    - `W` type: `int` (screen width)
+    - `H` type: `int` (screen height)
+    - `Title` type: `string`
+    - `Resizable` type: `bool`
+    - `Type` type: `WindowType`
+    - `LogicLoops` type: `[]*FixedHzLoop`
+    - `RenderLoop` type `*RenderLoop`
+- ### WindowType
+  - #### values
+    - `Windowed`
+    - `Fullscreen`
+    - `Borderless`
+ - ### windowRuntime2D
+   - #### content
+     - `Renderer` type: `*notagl.Renderer2D`
+- ### windowRuntime3D
+   - #### content
+     - `Renderer` type: `*notagl.Renderer3D` 
