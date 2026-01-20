@@ -30,6 +30,7 @@ a phsyics engine made in **golang** designed to make game dev easier by providin
     - `WindowType` type: `enum`
     - `windowRuntime2D` type: `struct`
     - `windowRunTime3D` type: `struct`
+    - `Window` type: `interface`
     - `GlfwWindow2D` type: `struct`
     - `GlfwWindow3D` type: `struct`
     
@@ -38,8 +39,7 @@ a phsyics engine made in **golang** designed to make game dev easier by providin
   - ### Engine
     Handles the main engine operations like looping, initializing windows etc 
     - #### content
-      - `Windows2D` type: `[]*GlfwWindow2D`
-      - `Windows3D` type: `[]*GlfwWindow3D`
+      - `Windows` type `[]Window`
       - `Settings` type: `*Settings`
       - `WindowManager` type: `*GLFWWindowManager`
     - #### functions
@@ -92,7 +92,16 @@ a phsyics engine made in **golang** designed to make game dev easier by providin
 - ### windowRuntime3D
    - #### content
      - `Renderer` type: `*notagl.Renderer3D`
+- ### Window
+  - #### functions
+  - `GetConfig() *WindowConfig`
+	- `GetRuntime() *WindowBaseRuntime`
+	- `MakeContextCurrent()`
+	- `SwapBuffers()`
+	- `ShouldClose() bool`
+	- `RunRenderer()`
 - ### GlfwWindow2D
+  implements `Window`
   - #### content
     - `ID` type: `int`
     - `Handle` type: `*glfw.Window`
