@@ -3,6 +3,8 @@ package notacore
 import (
 	"NotaborEngine/notashader"
 	"errors"
+
+	"github.com/go-gl/gl/v4.6-core/gl"
 )
 
 func (w *GlfwWindow2D) DeleteShader(name string) uint32 {
@@ -82,5 +84,23 @@ func (w *GlfwWindow3D) CreateShader(shader notashader.Shader) error {
 	}
 
 	w.Shaders[shader.Name] = notashader.CreateProgram(shader.VertexString, shader.FragmentString)
+	return nil
+}
+
+func (w *GlfwWindow2D) UseShader(name string) error {
+	program, err := w.GetShader(name)
+	if err != nil {
+		return err
+	}
+	gl.UseProgram(program)
+	return nil
+}
+
+func (w *GlfwWindow3D) UseShader(name string) error {
+	program, err := w.GetShader(name)
+	if err != nil {
+		return err
+	}
+	gl.UseProgram(program)
 	return nil
 }

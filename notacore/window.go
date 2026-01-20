@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-gl/gl/v4.6-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
 )
 
@@ -31,6 +32,7 @@ type Window interface {
 	GetShader(name string) (uint32, error)
 	UpdateShader(shader notashader.Shader) error
 	DeleteShader(name string) uint32
+	UseShader(name string) error
 	SetWindowType(t WindowType) error
 }
 
@@ -142,8 +144,16 @@ func (wm *windowManager) Create2D(cfg WindowConfig) (*GlfwWindow2D, error) {
 		},
 	}
 
-	wm.windows2D = append(wm.windows2D, win)
-	wm.nextID++
+	win.MakeContextCurrent()
+	if err := gl.Init(); err != nil {
+		return nil, err
+	}
+
+	gl.Enable(gl.BLEND)
+	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+
+	win.RunTime.backend.Init()
+
 	return win, nil
 }
 
@@ -199,8 +209,16 @@ func (wm *windowManager) Create3D(cfg WindowConfig) (*GlfwWindow3D, error) {
 		},
 	}
 
-	wm.windows3D = append(wm.windows3D, win)
-	wm.nextID++
+	win.MakeContextCurrent()
+	if err := gl.Init(); err != nil {
+		return nil, err
+	}
+
+	gl.Enable(gl.BLEND)
+	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+
+	win.RunTime.backend.Init()
+
 	return win, nil
 }
 
