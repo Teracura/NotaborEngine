@@ -2,12 +2,14 @@ package notagl
 
 import (
 	"NotaborEngine/notamath"
-	"math"
+	"NotaborEngine/notashader"
 )
 
 type Polygon struct {
 	Vertices  []notamath.Po2
 	Transform notamath.Transform2D
+	Color     notashader.Color   // Fallback / Single color
+	Colors    []notashader.Color // Gradient colors (one per vertex)
 }
 
 // Fixate Adjusts points according to center point
@@ -31,14 +33,56 @@ func (p *Polygon) Fixate() {
 
 func (p *Polygon) AddToOrders(orders *[]DrawOrder2D, alpha float32) {
 	mat := p.Transform.InterpolatedMatrix(alpha)
-	verts := make([]notamath.Po2, len(p.Vertices))
+
+	verts := make([]Vertex2D, len(p.Vertices))
+	useGradient := len(p.Colors) == len(p.Vertices)
+
 	for i, v := range p.Vertices {
-		verts[i] = mat.TransformPo2(v)
+		c := p.Color
+		if useGradient {
+			c = p.Colors[i]
+		}
+
+		verts[i] = Vertex2D{
+			Pos:   mat.TransformPo2(v),
+			Color: c,
+		}
 	}
 
 	*orders = append(*orders, DrawOrder2D{
 		Vertices: verts,
 	})
+}
+
+func (p *Polygon) SetVerticalGradient(top, bottom notashader.Color) {
+	p.Colors = make([]notashader.Color, len(p.Vertices))
+
+	minY, maxY := p.Vertices[0].Y, p.Vertices[0].Y
+	for _, v := range p.Vertices {
+		if v.Y < minY {
+			minY = v.Y
+		}
+		if v.Y > maxY {
+			maxY = v.Y
+		}
+	}
+
+	rangeY := maxY - minY
+	for i, v := range p.Vertices {
+		t := (v.Y - minY) / rangeY
+		p.Colors[i] = bottom.Lerp(top, t)
+	}
+}
+
+func (p *Polygon) SetColor(c notashader.Color) {
+	p.Color = c
+}
+
+func (p *Polygon) SetHorizontalGradient(left, right notashader.Color) {
+	p.Colors = make([]notashader.Color, len(p.Vertices))
+	for i, v := range p.Vertices {
+		p.Colors[i] = left.Lerp(right, v.X/p.Vertices[len(p.Vertices)-1].X)
+	}
 }
 
 func CreateRectangle(center notamath.Po2, w, h float32) Polygon {
@@ -55,15 +99,10 @@ func CreateRectangle(center notamath.Po2, w, h float32) Polygon {
 	return rect
 }
 
-func CreateCircle(origin notamath.Po2, radius float32, segments int) Polygon {
-	vertices := make([]notamath.Po2, segments)
-	for i := 0; i < segments; i++ {
-		vertices[i] = origin.Add(notamath.Vec2{
-			X: float32(math.Cos(float64(i) * 2 * math.Pi / float64(segments))),
-			Y: float32(math.Sin(float64(i) * 2 * math.Pi / float64(segments))),
-		}.Mul(radius))
-	}
-	return Polygon{Vertices: vertices, Transform: notamath.NewTransform2D()}
+func CreateCircle(center notamath.Po2, radius float32) Polygon {
+	size := radius * 2
+	rect := CreateRectangle(center, size, size)
+	return rect
 }
 
 func IsCCW(poly []notamath.Po2) bool {
@@ -125,7 +164,7 @@ func PolygonCentroid(poly []notamath.Po2) notamath.Po2 {
 
 	inv := 1.0 / (6.0 * area)
 	return notamath.Po2{
-		X: cx * float32(inv),
-		Y: cy * float32(inv),
+		X: cx * inv,
+		Y: cy * inv,
 	}
 }

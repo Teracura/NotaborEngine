@@ -2,13 +2,18 @@ package notagl
 
 import (
 	"NotaborEngine/notamath"
+	"NotaborEngine/notashader"
 	"unsafe"
 
 	"github.com/go-gl/gl/v4.6-core/gl"
 )
 
+type Vertex2D struct {
+	Pos   notamath.Po2
+	Color notashader.Color
+}
 type DrawOrder2D struct {
-	Vertices []notamath.Po2
+	Vertices []Vertex2D
 }
 
 type Renderer2D struct {
@@ -43,8 +48,26 @@ type GLBackend2D struct {
 }
 
 func (b *GLBackend2D) Init() {
-	b.format = vertexFormat2D{dimension: 2, stride: int32(unsafe.Sizeof(notamath.Po2{}))}
-	provideGlSettings(&b.vao, &b.vbo, b.format.stride, b.format.dimension)
+	b.format = vertexFormat2D{
+		dimension: 2,
+		stride:    int32(unsafe.Sizeof(Vertex2D{})),
+	}
+
+	gl.CreateVertexArrays(1, &b.vao)
+	gl.CreateBuffers(1, &b.vbo)
+
+	// Position Attribute (Location 0)
+	gl.VertexArrayVertexBuffer(b.vao, 0, b.vbo, 0, b.format.stride)
+	gl.VertexArrayAttribFormat(b.vao, 0, 2, gl.FLOAT, false, 0)
+	gl.VertexArrayAttribBinding(b.vao, 0, 0)
+	gl.EnableVertexArrayAttrib(b.vao, 0)
+
+	// Color Attribute (Location 1)
+	// Offset is the size of Po2 because Color starts after X, Y
+	colorOffset := uint32(unsafe.Sizeof(notamath.Po2{}))
+	gl.VertexArrayAttribFormat(b.vao, 1, 4, gl.FLOAT, false, colorOffset)
+	gl.VertexArrayAttribBinding(b.vao, 1, 0)
+	gl.EnableVertexArrayAttrib(b.vao, 1)
 }
 
 func (b *GLBackend2D) BindVao() {
@@ -52,12 +75,12 @@ func (b *GLBackend2D) BindVao() {
 }
 
 func (b *GLBackend2D) UploadData(vertices interface{}) {
-	verts := vertices.([]notamath.Po2)
+	verts := vertices.([]Vertex2D)
 	gl.NamedBufferData(b.vbo, len(verts)*int(b.format.stride), gl.Ptr(verts), gl.DYNAMIC_DRAW)
 }
 
 func (r *Renderer2D) Flush(backend *GLBackend2D) {
-	var flat []notamath.Po2
+	var flat []Vertex2D
 	for _, order := range r.Orders {
 		flat = append(flat, order.Vertices...)
 	}
@@ -69,22 +92,22 @@ func (r *Renderer2D) Flush(backend *GLBackend2D) {
 	gl.DrawArrays(gl.TRIANGLES, 0, int32(len(flat)))
 }
 
-func Triangulate2D(polygon []notamath.Po2) []notamath.Po2 {
+func Triangulate2D(polygon []Vertex2D) []Vertex2D {
 	n := len(polygon)
 	if n < 3 {
 		return nil
 	}
 
-	verts := append([]notamath.Po2{}, polygon...)
+	verts := append([]Vertex2D{}, polygon...)
 
-	// Enforce CCW winding
-	if !IsCCW(verts) {
+	// Enforce CCW winding (using Pos for math)
+	if !isCCWVertices(verts) {
 		for i, j := 0, len(verts)-1; i < j; i, j = i+1, j-1 {
 			verts[i], verts[j] = verts[j], verts[i]
 		}
 	}
 
-	var result []notamath.Po2
+	var result []Vertex2D
 
 	for len(verts) > 3 {
 		earFound := false
@@ -94,7 +117,7 @@ func Triangulate2D(polygon []notamath.Po2) []notamath.Po2 {
 			curr := verts[i]
 			next := verts[(i+1)%len(verts)]
 
-			if IsEar(prev, curr, next, verts) {
+			if isEarVertex(prev, curr, next, verts) {
 				result = append(result, prev, curr, next)
 
 				verts = append(verts[:i], verts[i+1:]...)
@@ -110,4 +133,30 @@ func Triangulate2D(polygon []notamath.Po2) []notamath.Po2 {
 
 	result = append(result, verts[0], verts[1], verts[2])
 	return result
+}
+
+// Helper functions to use Vertex2D for triangulation math
+func isCCWVertices(poly []Vertex2D) bool {
+	var area float32
+	for i := 0; i < len(poly); i++ {
+		a := poly[i].Pos
+		b := poly[(i+1)%len(poly)].Pos
+		area += (b.X - a.X) * (b.Y + a.Y)
+	}
+	return area < 0
+}
+
+func isEarVertex(prev, curr, next Vertex2D, poly []Vertex2D) bool {
+	if notamath.Orient(prev.Pos, curr.Pos, next.Pos) <= 0 {
+		return false
+	}
+	for _, p := range poly {
+		if p.Pos == prev.Pos || p.Pos == curr.Pos || p.Pos == next.Pos {
+			continue
+		}
+		if PointInTriangle(p.Pos, prev.Pos, curr.Pos, next.Pos) {
+			return false
+		}
+	}
+	return true
 }

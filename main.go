@@ -1,8 +1,6 @@
 package main
 
 import (
-	"github.com/go-gl/gl/v4.6-core/gl"
-
 	"NotaborEngine/notacore"
 	"NotaborEngine/notagl"
 	"NotaborEngine/notamath"
@@ -29,17 +27,22 @@ func main() {
 	logicLoop1 := &notacore.FixedHzLoop{Hz: 240}
 
 	cfg1 := notacore.WindowConfig{
-		X:          100,
-		Y:          100,
-		W:          600,
-		H:          600,
+		X:          0,
+		Y:          0,
+		W:          1000,
+		H:          1000,
 		Title:      "Test Window 1",
 		Resizable:  true,
-		Type:       notacore.Windowed,
+		Type:       notacore.Borderless,
 		LogicLoops: []*notacore.FixedHzLoop{logicLoop1},
 		RenderLoop: renderLoop1,
 	}
-	shader := notashader.Shader{
+	circle := notashader.Shader{
+		Name:           "circle2D",
+		VertexString:   notashader.Circle2DVertex,
+		FragmentString: notashader.Circle2DFragment,
+	}
+	rectShader := notashader.Shader{
 		Name:           "basic2D",
 		VertexString:   notashader.Vertex2D,
 		FragmentString: notashader.Fragment2D,
@@ -50,16 +53,13 @@ func main() {
 		panic(err)
 	}
 	win1.MakeContextCurrent()
-	err = win1.CreateShader(shader)
+	err = win1.CreateShader(circle)
+	err = win1.CreateShader(rectShader)
 	if err != nil {
 		panic(err)
 	}
 
 	addRunnables(win1)
-
-	if err := win1.SetWindowType(notacore.Borderless); err != nil {
-		panic(err)
-	}
 
 	if err := engine.Run(); err != nil {
 		panic(err)
@@ -75,6 +75,12 @@ func addRunnables(win *notacore.GlfwWindow2D) {
 			{-0.5, 0.5},
 		},
 		Transform: notamath.NewTransform2D(),
+		Colors: []notashader.Color{
+			notashader.Red,
+			notashader.Yellow,
+			notashader.Blue,
+			notashader.Green,
+		},
 	}
 	rect.Fixate()
 
@@ -88,7 +94,10 @@ func addRunnables(win *notacore.GlfwWindow2D) {
 	})
 
 	renderLoop.Runnables = append(renderLoop.Runnables, func() error {
-		gl.UseProgram(win.Shaders["basic2D"])
+		err := win.UseShader("circle2D")
+		if err != nil {
+			panic(err)
+		}
 		alpha := logicLoop.Alpha(time.Now())
 
 		renderer.Submit(rect, alpha)
