@@ -39,24 +39,34 @@ func main() {
 		LogicLoops: []*notacore.FixedHzLoop{logicLoop1},
 		RenderLoop: renderLoop1,
 	}
+	shader := notashader.Shader{
+		Name:           "basic2D",
+		VertexString:   notashader.Vertex2D,
+		FragmentString: notashader.Fragment2D,
+	}
+
 	win1, err := engine.CreateWindow2D(cfg1)
 	if err != nil {
 		panic(err)
 	}
 	win1.MakeContextCurrent()
-	shader1 := notashader.CreateProgram(
-		notashader.Vertex2D,
-		notashader.Fragment2D,
-	).Type
+	err = win1.CreateShader(shader)
+	if err != nil {
+		panic(err)
+	}
 
-	addRunnables(win1, shader1)
+	addRunnables(win1)
+
+	if err := win1.SetWindowType(notacore.Borderless); err != nil {
+		panic(err)
+	}
 
 	if err := engine.Run(); err != nil {
 		panic(err)
 	}
 }
 
-func addRunnables(win *notacore.GlfwWindow2D, shaderProgram uint32) {
+func addRunnables(win *notacore.GlfwWindow2D) {
 	rect := notagl.Polygon{
 		Vertices: []notamath.Po2{
 			{-0.5, -0.5},
@@ -78,7 +88,7 @@ func addRunnables(win *notacore.GlfwWindow2D, shaderProgram uint32) {
 	})
 
 	renderLoop.Runnables = append(renderLoop.Runnables, func() error {
-		gl.UseProgram(shaderProgram)
+		gl.UseProgram(win.Shaders["basic2D"])
 		alpha := logicLoop.Alpha(time.Now())
 
 		renderer.Submit(rect, alpha)
