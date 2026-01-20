@@ -6,19 +6,13 @@ import (
 	"github.com/go-gl/gl/v4.6-core/gl"
 )
 
-type ShaderProgram struct {
-	Type uint32
-	Err  error
+type Shader struct {
+	Name           string
+	VertexString   string
+	FragmentString string
 }
 
-var Shaders map[string]uint32 = make(map[string]uint32)
-
-type Program interface {
-	CompileShader(source string, shaderType uint32) ShaderProgram
-	CreateProgram(vertexSrc, fragmentSrc string) ShaderProgram
-}
-
-func CompileShader(source string, shaderType uint32) ShaderProgram {
+func compileShader(source string, shaderType uint32) (uint32, error) {
 	shader := gl.CreateShader(shaderType)
 	sources, free := gl.Strs(source + "\x00")
 	defer free()
@@ -32,38 +26,26 @@ func CompileShader(source string, shaderType uint32) ShaderProgram {
 		gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &logLength)
 		log := make([]byte, logLength+1)
 		gl.GetShaderInfoLog(shader, logLength, nil, &log[0])
-		return ShaderProgram{
-			Type: 0,
-			Err:  fmt.Errorf("failed to compile shader: %s", log),
-		}
+		return 0, fmt.Errorf("failed to compile shader: %s", log)
 	}
 
-	return ShaderProgram{
-		Type: shader,
-		Err:  nil,
-	}
+	return shader, nil
 }
 
-func CreateProgram(vertexSrc, fragmentSrc string) ShaderProgram {
-	vert := CompileShader(vertexSrc, gl.VERTEX_SHADER)
-	if vert.Err != nil {
-		return ShaderProgram{
-			Type: 0,
-			Err:  vert.Err,
-		}
+func CreateProgram(vertexSrc, fragmentSrc string) uint32 {
+	vert, err := compileShader(vertexSrc, gl.VERTEX_SHADER)
+	if err != nil {
+		panic(err)
 	}
 
-	frag := CompileShader(fragmentSrc, gl.FRAGMENT_SHADER)
-	if frag.Err != nil {
-		return ShaderProgram{
-			Type: 0,
-			Err:  frag.Err,
-		}
+	frag, err := compileShader(fragmentSrc, gl.FRAGMENT_SHADER)
+	if err != nil {
+		panic(err)
 	}
 
 	prog := gl.CreateProgram()
-	gl.AttachShader(prog, vert.Type)
-	gl.AttachShader(prog, frag.Type)
+	gl.AttachShader(prog, vert)
+	gl.AttachShader(prog, frag)
 	gl.LinkProgram(prog)
 
 	var status int32
@@ -73,15 +55,12 @@ func CreateProgram(vertexSrc, fragmentSrc string) ShaderProgram {
 		gl.GetProgramiv(prog, gl.INFO_LOG_LENGTH, &logLength)
 		log := make([]byte, logLength+1)
 		gl.GetProgramInfoLog(prog, logLength, nil, &log[0])
-		return ShaderProgram{
-			Type: 0,
-			Err:  fmt.Errorf("failed to link program: %s", log),
-		}
+		panic(fmt.Sprintf("failed to link program: %s", log))
 	}
 
 	// deleting is intentional
-	gl.DeleteShader(vert.Type)
-	gl.DeleteShader(frag.Type)
+	gl.DeleteShader(vert)
+	gl.DeleteShader(frag)
 
-	return ShaderProgram{Type: prog, Err: nil}
+	return prog
 }
