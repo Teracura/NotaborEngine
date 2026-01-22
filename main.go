@@ -27,13 +27,13 @@ func main() {
 	logicLoop1 := &notacore.FixedHzLoop{Hz: 240}
 
 	cfg1 := notacore.WindowConfig{
-		X:          0,
-		Y:          0,
-		W:          1000,
-		H:          1000,
+		X:          350,
+		Y:          50,
+		W:          800,
+		H:          800,
 		Title:      "Test Window 1",
 		Resizable:  true,
-		Type:       notacore.Borderless,
+		Type:       notacore.Windowed,
 		LogicLoops: []*notacore.FixedHzLoop{logicLoop1},
 		RenderLoop: renderLoop1,
 	}
@@ -76,10 +76,10 @@ func addRunnables(win *notacore.GlfwWindow2D) {
 		},
 		Transform: notamath.NewTransform2D(),
 		Colors: []notashader.Color{
+			notashader.White,
 			notashader.Red,
-			notashader.Yellow,
-			notashader.Blue,
-			notashader.Green,
+			notashader.Purple,
+			notashader.White,
 		},
 	}
 	rect.Fixate()

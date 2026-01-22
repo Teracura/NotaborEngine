@@ -30,10 +30,7 @@ const Circle2DVertex = `
 
     void main() {
         gl_Position = vec4(aPos, 0.0, 1.0);
-        
-        // We need to know where we are relative to the center of the quad.
-        // Since Fixate() centers your vertices around (0,0), 
-        // aPos is already "local enough" for a simple distance check.
+
         vLocalPos = aPos; 
         vColor = aColor;
     }
@@ -48,11 +45,8 @@ const Circle2DFragment = `
     out vec4 FragColor;
 
     void main() {
-        // Calculate distance from the local origin (0,0)
         float dist = length(vLocalPos);
 
-        // Since we don't have scale here, we'll assume a radius of 0.5 
-        // (matching your CreateRectangle setup)
         float radius = 0.5;
         float edge = 0.01; 
         float alpha = 1.0 - smoothstep(radius - edge, radius, dist);
