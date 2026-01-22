@@ -18,7 +18,9 @@ type Engine struct {
 	Windows       []Window
 	Settings      *Settings
 	WindowManager *windowManager
-	running       bool
+	Input         *InputManager
+
+	running bool
 }
 
 func (e *Engine) Run() error {
@@ -28,6 +30,13 @@ func (e *Engine) Run() error {
 	for _, w := range e.Windows {
 		cfg := w.GetConfig()
 		for _, loop := range cfg.LogicLoops {
+			if e.Input != nil {
+				update := func() error {
+					e.Input.UpdateSignals()
+					return nil
+				}
+				loop.Runnables = append([]Runnable{update}, loop.Runnables...)
+			}
 			loop.Start()
 		}
 		w.GetRuntime().lastRender = time.Now()
@@ -35,6 +44,11 @@ func (e *Engine) Run() error {
 
 	for e.running && !e.AllWindowsClosed() {
 		e.WindowManager.PollEvents()
+
+		if e.Input != nil {
+			e.Input.CaptureInputs(e.Windows)
+		}
+
 		now := time.Now()
 
 		for _, win := range e.Windows {
@@ -61,7 +75,6 @@ func (e *Engine) Run() error {
 			loop.Stop()
 		}
 	}
-
 	return nil
 }
 
@@ -102,6 +115,7 @@ func (e *Engine) InitPlatform() error {
 	}
 
 	e.WindowManager = wm
+	e.Input = &InputManager{}
 	return nil
 }
 
