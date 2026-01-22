@@ -5,6 +5,7 @@ import (
 	"NotaborEngine/notagl"
 	"NotaborEngine/notamath"
 	"NotaborEngine/notashader"
+	"fmt"
 	"runtime"
 	"time"
 )
@@ -14,19 +15,25 @@ func init() {
 }
 
 func main() {
+	if err := run(); err != nil {
+		panic(err)
+	}
+}
+
+func run() error {
 	engine := &notacore.Engine{
 		Settings: &notacore.Settings{},
 	}
 
 	if err := engine.InitPlatform(); err != nil {
-		panic(err)
+		return err
 	}
 	defer engine.Shutdown()
 
-	renderLoop1 := &notacore.RenderLoop{MaxHz: 60}
-	logicLoop1 := &notacore.FixedHzLoop{Hz: 240}
+	renderLoop := &notacore.RenderLoop{MaxHz: 60}
+	logicLoop := &notacore.FixedHzLoop{Hz: 240}
 
-	cfg1 := notacore.WindowConfig{
+	cfg := notacore.WindowConfig{
 		X:          350,
 		Y:          50,
 		W:          800,
@@ -34,36 +41,38 @@ func main() {
 		Title:      "Test Window 1",
 		Resizable:  true,
 		Type:       notacore.Windowed,
-		LogicLoops: []*notacore.FixedHzLoop{logicLoop1},
-		RenderLoop: renderLoop1,
+		LogicLoops: []*notacore.FixedHzLoop{logicLoop},
+		RenderLoop: renderLoop,
 	}
-	circle := notashader.Shader{
+
+	win, err := engine.CreateWindow2D(cfg)
+	if err != nil {
+		return err
+	}
+	win.MakeContextCurrent()
+
+	if err := win.CreateShader(notashader.Shader{
 		Name:           "circle2D",
 		VertexString:   notashader.Circle2DVertex,
 		FragmentString: notashader.Circle2DFragment,
+	}); err != nil {
+		return fmt.Errorf("create shader circle2D: %w", err)
 	}
-	rectShader := notashader.Shader{
+
+	if err := win.CreateShader(notashader.Shader{
 		Name:           "basic2D",
 		VertexString:   notashader.Vertex2D,
 		FragmentString: notashader.Fragment2D,
+	}); err != nil {
+		return fmt.Errorf("create shader basic2D: %w", err)
 	}
 
-	win1, err := engine.CreateWindow2D(cfg1)
-	if err != nil {
-		panic(err)
-	}
-	win1.MakeContextCurrent()
-	err = win1.CreateShader(circle)
-	err = win1.CreateShader(rectShader)
-	if err != nil {
-		panic(err)
-	}
-
-	addRunnables(win1)
+	addRunnables(win)
 
 	if err := engine.Run(); err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }
 
 func addRunnables(win *notacore.GlfwWindow2D) {
@@ -87,6 +96,7 @@ func addRunnables(win *notacore.GlfwWindow2D) {
 	logicLoop := win.Config.LogicLoops[0]
 	renderLoop := win.Config.RenderLoop
 	renderer := win.RunTime.Renderer
+
 	logicLoop.Runnables = append(logicLoop.Runnables, func() error {
 		rect.Transform.Snapshot()
 		rect.Transform.RotateBy(0.01)
@@ -94,12 +104,11 @@ func addRunnables(win *notacore.GlfwWindow2D) {
 	})
 
 	renderLoop.Runnables = append(renderLoop.Runnables, func() error {
-		err := win.UseShader("circle2D")
-		if err != nil {
-			panic(err)
+		if err := win.UseShader("circle2D"); err != nil {
+			return err
 		}
-		alpha := logicLoop.Alpha(time.Now())
 
+		alpha := logicLoop.Alpha(time.Now())
 		renderer.Submit(rect, alpha)
 		return nil
 	})
