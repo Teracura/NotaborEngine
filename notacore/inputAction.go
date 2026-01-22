@@ -14,8 +14,7 @@ const (
 )
 
 type Action struct {
-	Name         string
-	Signal       *InputSignal
+	signal       *InputSignal
 	Toggled      bool
 	HeldTicks    int64
 	LastHeldTime time.Duration
@@ -25,6 +24,8 @@ type Action struct {
 
 	Cooldown time.Duration
 	lastRun  time.Time
+
+	runnables []Runnable
 }
 
 func (a *Action) ShouldRun() bool {
@@ -39,15 +40,15 @@ func (a *Action) ShouldRun() bool {
 	var result bool
 	switch a.Behavior {
 	case RunWhileHeld:
-		result = a.Signal.Held()
+		result = a.signal.Held()
 	case RunWhileToggled:
 		result = a.Toggled
 	case RunOnceWhenPressed:
-		result = a.Signal.Pressed()
+		result = a.signal.Pressed()
 	case RunOnceWhenReleased:
-		result = a.Signal.Released()
+		result = a.signal.Released()
 	case RunWhileIdle:
-		result = a.Signal.Idle()
+		result = a.signal.Idle()
 	case Ignore:
 		return false
 	}
@@ -59,21 +60,35 @@ func (a *Action) ShouldRun() bool {
 }
 
 func (a *Action) shouldToggle() {
-	if a.Signal.Pressed() {
+	if a.signal.Pressed() {
 		a.Toggled = !a.Toggled
 	}
 }
 
 func (a *Action) updateHoldInformation() {
-	if a.Signal.Released() {
+	if a.signal.Released() {
 		a.lastRelease = time.Now()
 		a.HeldTicks = 0
 	}
 
-	if a.Signal.Held() {
+	if a.signal.Held() {
 		a.lastHold = time.Now()
 		a.HeldTicks++
 	}
 
 	a.LastHeldTime = a.lastHold.Sub(a.lastRelease)
+}
+
+func (a *Action) Run(on *FixedHzLoop) {
+	for _, r := range a.runnables {
+		on.OneTimeRunnables = append(on.OneTimeRunnables, r)
+	}
+}
+
+func (a *Action) BindSignal(sig *InputSignal) {
+	a.signal = sig
+}
+
+func (a *Action) AddRunnable(r Runnable) {
+	a.runnables = append(a.runnables, r)
 }

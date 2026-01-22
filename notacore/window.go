@@ -34,6 +34,7 @@ type Window interface {
 	DeleteShader(name string) uint32
 	UseShader(name string) error
 	SetWindowType(t WindowType) error
+	GLFW() *glfw.Window
 }
 
 type WindowBaseRuntime struct {
@@ -68,6 +69,7 @@ func (w *GlfwWindow2D) RunRenderer() {
 	w.Config.RenderLoop.Render()
 	w.RunTime.Renderer.Flush(w.RunTime.backend)
 }
+func (w *GlfwWindow2D) GLFW() *glfw.Window { return w.Handle }
 
 type GlfwWindow3D struct {
 	ID      int
@@ -76,6 +78,8 @@ type GlfwWindow3D struct {
 	RunTime windowRuntime3D
 	Shaders map[string]uint32
 }
+
+func (w *GlfwWindow3D) GLFW() *glfw.Window { return w.Handle }
 
 func (w *GlfwWindow3D) GetConfig() *WindowConfig       { return &w.Config }
 func (w *GlfwWindow3D) GetRuntime() *WindowBaseRuntime { return &w.RunTime.WindowBaseRuntime }

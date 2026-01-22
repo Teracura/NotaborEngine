@@ -1,11 +1,11 @@
 package notacore
 
+import "github.com/go-gl/glfw/v3.3/glfw"
+
 type Input int
 
 const (
-	InputInvalid Input = iota
-
-	KeySpace
+	KeySpace Input = iota
 	KeyApostrophe
 	KeyComma
 	KeyMinus
@@ -134,20 +134,20 @@ const (
 	KeyRightAlt
 	KeyRightSuper
 	KeyLeftCommand  //does not work yet
-	KeyRightCommand // does not work yet
+	KeyRightCommand //does not work yet
 	KeyOptionLeft   //does not work yet
 	KeyOptionRight  //does not work yet
 	KeyFn           //does not work yet
 	KeyMenu
 
-	KeyMediaPlayPause
-	KeyMediaStop
-	KeyMediaNext
-	KeyMediaPrev
-	KeyVolumeUp
-	KeyVolumeDown
-	KeyBrightnessUp
-	KeyBrightnessDown
+	KeyMediaPlayPause //does not work yet
+	KeyMediaStop      //does not work yet
+	KeyMediaNext      //does not work yet
+	KeyMediaPrev      //does not work yet
+	KeyVolumeUp       //does not work yet
+	KeyVolumeDown     //does not work yet
+	KeyBrightnessUp   //does not work yet
+	KeyBrightnessDown //does not work yet
 
 	MouseLeft
 	MouseRight
@@ -157,11 +157,6 @@ const (
 	MouseButton6
 	MouseButton7
 	MouseButton8
-
-	MouseX
-	MouseY
-	MouseScrollX
-	MouseScrollY
 
 	PadA
 	PadB
@@ -239,3 +234,289 @@ const (
 	OrientationYaw
 	OrientationRoll
 )
+
+var glfwKeyMap = map[Input]glfw.Key{
+	KeySpace:        glfw.KeySpace,
+	KeyApostrophe:   glfw.KeyApostrophe,
+	KeyComma:        glfw.KeyComma,
+	KeyMinus:        glfw.KeyMinus,
+	KeyPeriod:       glfw.KeyPeriod,
+	KeySlash:        glfw.KeySlash,
+	Key0:            glfw.Key0,
+	Key1:            glfw.Key1,
+	Key2:            glfw.Key2,
+	Key3:            glfw.Key3,
+	Key4:            glfw.Key4,
+	Key5:            glfw.Key5,
+	Key6:            glfw.Key6,
+	Key7:            glfw.Key7,
+	Key8:            glfw.Key8,
+	Key9:            glfw.Key9,
+	KeySemicolon:    glfw.KeySemicolon,
+	KeyEqual:        glfw.KeyEqual,
+	KeyA:            glfw.KeyA,
+	KeyB:            glfw.KeyB,
+	KeyC:            glfw.KeyC,
+	KeyD:            glfw.KeyD,
+	KeyE:            glfw.KeyE,
+	KeyF:            glfw.KeyF,
+	KeyG:            glfw.KeyG,
+	KeyH:            glfw.KeyH,
+	KeyI:            glfw.KeyI,
+	KeyJ:            glfw.KeyJ,
+	KeyK:            glfw.KeyK,
+	KeyL:            glfw.KeyL,
+	KeyM:            glfw.KeyM,
+	KeyN:            glfw.KeyN,
+	KeyO:            glfw.KeyO,
+	KeyP:            glfw.KeyP,
+	KeyQ:            glfw.KeyQ,
+	KeyR:            glfw.KeyR,
+	KeyS:            glfw.KeyS,
+	KeyT:            glfw.KeyT,
+	KeyU:            glfw.KeyU,
+	KeyV:            glfw.KeyV,
+	KeyW:            glfw.KeyW,
+	KeyX:            glfw.KeyX,
+	KeyY:            glfw.KeyY,
+	KeyZ:            glfw.KeyZ,
+	KeyLeftBracket:  glfw.KeyLeftBracket,
+	KeyBackslash:    glfw.KeyBackslash,
+	KeyRightBracket: glfw.KeyRightBracket,
+	KeyGraveAccent:  glfw.KeyGraveAccent,
+
+	KeyEscape:      glfw.KeyEscape,
+	KeyEnter:       glfw.KeyEnter,
+	KeyTab:         glfw.KeyTab,
+	KeyBackspace:   glfw.KeyBackspace,
+	KeyInsert:      glfw.KeyInsert,
+	KeyDelete:      glfw.KeyDelete,
+	KeyRight:       glfw.KeyRight,
+	KeyLeft:        glfw.KeyLeft,
+	KeyDown:        glfw.KeyDown,
+	KeyUp:          glfw.KeyUp,
+	KeyPageUp:      glfw.KeyPageUp,
+	KeyPageDown:    glfw.KeyPageDown,
+	KeyHome:        glfw.KeyHome,
+	KeyEnd:         glfw.KeyEnd,
+	KeyCapsLock:    glfw.KeyCapsLock,
+	KeyScrollLock:  glfw.KeyScrollLock,
+	KeyNumLock:     glfw.KeyNumLock,
+	KeyPrintScreen: glfw.KeyPrintScreen,
+	KeyPause:       glfw.KeyPause,
+
+	KeyF1:  glfw.KeyF1,
+	KeyF2:  glfw.KeyF2,
+	KeyF3:  glfw.KeyF3,
+	KeyF4:  glfw.KeyF4,
+	KeyF5:  glfw.KeyF5,
+	KeyF6:  glfw.KeyF6,
+	KeyF7:  glfw.KeyF7,
+	KeyF8:  glfw.KeyF8,
+	KeyF9:  glfw.KeyF9,
+	KeyF10: glfw.KeyF10,
+	KeyF11: glfw.KeyF11,
+	KeyF12: glfw.KeyF12,
+	KeyF13: glfw.KeyF13,
+	KeyF14: glfw.KeyF14,
+	KeyF15: glfw.KeyF15,
+	KeyF16: glfw.KeyF16,
+	KeyF17: glfw.KeyF17,
+	KeyF18: glfw.KeyF18,
+	KeyF19: glfw.KeyF19,
+	KeyF20: glfw.KeyF20,
+	KeyF21: glfw.KeyF21,
+	KeyF22: glfw.KeyF22,
+	KeyF23: glfw.KeyF23,
+	KeyF24: glfw.KeyF24,
+	KeyF25: glfw.KeyF25,
+
+	KeyKP0:        glfw.KeyKP0,
+	KeyKP1:        glfw.KeyKP1,
+	KeyKP2:        glfw.KeyKP2,
+	KeyKP3:        glfw.KeyKP3,
+	KeyKP4:        glfw.KeyKP4,
+	KeyKP5:        glfw.KeyKP5,
+	KeyKP6:        glfw.KeyKP6,
+	KeyKP7:        glfw.KeyKP7,
+	KeyKP8:        glfw.KeyKP8,
+	KeyKP9:        glfw.KeyKP9,
+	KeyKPDecimal:  glfw.KeyKPDecimal,
+	KeyKPDivide:   glfw.KeyKPDivide,
+	KeyKPMultiply: glfw.KeyKPMultiply,
+	KeyKPSubtract: glfw.KeyKPSubtract,
+	KeyKPAdd:      glfw.KeyKPAdd,
+	KeyKPEnter:    glfw.KeyKPEnter,
+	KeyKPEqual:    glfw.KeyKPEqual,
+
+	KeyLeftShift:    glfw.KeyLeftShift,
+	KeyLeftControl:  glfw.KeyLeftControl,
+	KeyLeftAlt:      glfw.KeyLeftAlt,
+	KeyLeftSuper:    glfw.KeyLeftSuper,
+	KeyRightShift:   glfw.KeyRightShift,
+	KeyRightControl: glfw.KeyRightControl,
+	KeyRightAlt:     glfw.KeyRightAlt,
+	KeyRightSuper:   glfw.KeyRightSuper,
+
+	KeyMenu: glfw.KeyMenu,
+
+	// Notes:
+	// KeyLeftCommand/KeyRightCommand/KeyOptionLeft/KeyOptionRight/KeyFn are not part of GLFW's key enum.
+	// GLFW does not expose media/volume/brightness keys in a cross-platform way.
+}
+
+var glfwMouseButtonMap = map[Input]glfw.MouseButton{
+	MouseLeft:    glfw.MouseButtonLeft,
+	MouseRight:   glfw.MouseButtonRight,
+	MouseMiddle:  glfw.MouseButtonMiddle,
+	MouseButton4: glfw.MouseButton4,
+	MouseButton5: glfw.MouseButton5,
+	MouseButton6: glfw.MouseButton6,
+	MouseButton7: glfw.MouseButton7,
+	MouseButton8: glfw.MouseButton8,
+}
+
+var glfwGamepadButtonMap = map[Input]glfw.GamepadButton{
+	PadA:          glfw.ButtonA,
+	PadB:          glfw.ButtonB,
+	PadX:          glfw.ButtonX,
+	PadY:          glfw.ButtonY,
+	PadLB:         glfw.ButtonLeftBumper,
+	PadRB:         glfw.ButtonRightBumper,
+	PadBack:       glfw.ButtonBack,
+	PadStart:      glfw.ButtonStart,
+	PadGuide:      glfw.ButtonGuide,
+	PadLeftThumb:  glfw.ButtonLeftThumb,
+	PadRightThumb: glfw.ButtonRightThumb,
+	PadDpadUp:     glfw.ButtonDpadUp,
+	PadDpadRight:  glfw.ButtonDpadRight,
+	PadDpadDown:   glfw.ButtonDpadDown,
+	PadDpadLeft:   glfw.ButtonDpadLeft,
+}
+
+var glfwGamepadAxisMap = map[Input]glfw.GamepadAxis{
+	PadAxisLeftX:        glfw.AxisLeftX,
+	PadAxisLeftY:        glfw.AxisLeftY,
+	PadAxisRightX:       glfw.AxisRightX,
+	PadAxisRightY:       glfw.AxisRightY,
+	PadAxisLeftTrigger:  glfw.AxisLeftTrigger,
+	PadAxisRightTrigger: glfw.AxisRightTrigger,
+}
+
+type InputManager struct {
+	inputToSignal  map[Input][]*InputSignal
+	signalToAction map[*InputSignal][]*Action
+}
+
+func (im *InputManager) BindInput(input Input, signal *InputSignal) {
+	if signal == nil {
+		return
+	}
+	if im.inputToSignal == nil {
+		im.inputToSignal = make(map[Input][]*InputSignal)
+	}
+	im.inputToSignal[input] = append(im.inputToSignal[input], signal)
+}
+
+func (im *InputManager) RegisterAction(action *Action) {
+	if action == nil || action.signal == nil {
+		return
+	}
+	if im.signalToAction == nil {
+		im.signalToAction = make(map[*InputSignal][]*Action)
+	}
+	im.signalToAction[action.signal] = append(im.signalToAction[action.signal], action)
+}
+
+func (im *InputManager) CheckInputs(windows []Window) {
+	if len(im.inputToSignal) == 0 || len(windows) == 0 {
+		return
+	}
+
+	activeByInput := make(map[Input]bool, len(im.inputToSignal))
+	for input := range im.inputToSignal {
+		activeByInput[input] = false
+	}
+
+	for _, win := range windows {
+		if win == nil || win.ShouldClose() {
+			continue
+		}
+
+		win.MakeContextCurrent()
+
+		gamepads := connectedGamepads()
+
+		for input := range im.inputToSignal {
+			if activeByInput[input] {
+				continue // already active somewhere
+			}
+			activeByInput[input] = isInputActive(win, input, gamepads)
+		}
+	}
+
+	for input, signals := range im.inputToSignal {
+		active := activeByInput[input]
+		for _, sig := range signals {
+			if sig == nil {
+				continue
+			}
+			sig.Snapshot()
+			sig.Set(active)
+		}
+	}
+}
+
+func isInputActive(win Window, input Input, gamepads []*glfw.GamepadState) bool {
+	if key, ok := glfwKeyMap[input]; ok {
+		return win.GLFW().GetKey(key) == glfw.Press
+	}
+
+	if btn, ok := glfwMouseButtonMap[input]; ok {
+		return win.GLFW().GetMouseButton(btn) == glfw.Press
+	}
+
+	if len(gamepads) == 0 {
+		return false
+	}
+
+	if btn, ok := glfwGamepadButtonMap[input]; ok {
+		for _, st := range gamepads {
+			if st != nil && st.Buttons[btn] == glfw.Press {
+				return true
+			}
+		}
+		return false
+	}
+
+	if axis, ok := glfwGamepadAxisMap[input]; ok {
+		const deadzone = float32(0.2)
+		for _, st := range gamepads {
+			if st == nil {
+				continue
+			}
+			v := st.Axes[axis]
+			if v > deadzone || v < -deadzone {
+				return true
+			}
+		}
+		return false
+	}
+
+	return false
+}
+
+func connectedGamepads() []*glfw.GamepadState {
+	gamepads := make([]*glfw.GamepadState, 0, 4)
+	for joyID := glfw.Joystick1; joyID <= glfw.JoystickLast; joyID++ {
+		if !joyID.Present() || !joyID.IsGamepad() {
+			continue
+		}
+		state := joyID.GetGamepadState()
+		if state == nil {
+			continue
+		}
+		gamepads = append(gamepads, state)
+	}
+	return gamepads
+}

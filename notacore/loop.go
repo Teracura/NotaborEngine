@@ -1,7 +1,6 @@
 package notacore
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -11,13 +10,12 @@ import (
 
 type Runnable func() error
 
-var ErrRunOnce = errors.New("")
-
 type FixedHzLoop struct {
 	Hz float32
 
-	mu        sync.Mutex
-	Runnables []Runnable
+	mu               sync.Mutex
+	Runnables        []Runnable
+	OneTimeRunnables []Runnable
 
 	stop chan struct{}
 	wg   sync.WaitGroup
@@ -62,19 +60,30 @@ func (l *FixedHzLoop) Start() {
 				// Execute all runnables
 				l.mu.Lock()
 				l.lastTick = time.Now()
-				rs := append([]Runnable(nil), l.Runnables...)
+				otr := append([]Runnable(nil), l.OneTimeRunnables...)
+				atr := append([]Runnable(nil), l.Runnables...) //all time runnables
 				l.mu.Unlock()
 
-				for i, r := range rs {
+				for _, r := range otr {
 					if err := r(); err != nil {
-						if errors.Is(err, ErrRunOnce) {
-							l.Remove(i)
-							continue
-						}
-						l.Remove(i)
 						fmt.Println(err)
 					}
 				}
+
+				newRunnables := atr[:0] // reuse underlying array
+				for _, r := range atr {
+					if err := r(); err != nil {
+						fmt.Println(err)
+					} else {
+						newRunnables = append(newRunnables, r)
+					}
+				}
+
+				l.mu.Lock()
+				l.OneTimeRunnables = nil
+				l.Runnables = newRunnables
+				l.mu.Unlock()
+
 			case <-l.stop:
 				return
 			}
