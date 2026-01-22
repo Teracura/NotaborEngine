@@ -23,6 +23,7 @@ func main() {
 func run() error {
 	engine := &notacore.Engine{
 		Settings: &notacore.Settings{},
+		Input:    &notacore.InputManager{},
 	}
 
 	if err := engine.InitPlatform(); err != nil {
@@ -31,7 +32,8 @@ func run() error {
 	defer engine.Shutdown()
 
 	renderLoop := &notacore.RenderLoop{MaxHz: 60}
-	logicLoop := &notacore.FixedHzLoop{Hz: 240}
+	logicLoop := &notacore.FixedHzLoop{Hz: 1000}
+	logicLoop.EnableMonitor(1 * time.Second)
 
 	cfg := notacore.WindowConfig{
 		X:          350,
@@ -67,7 +69,7 @@ func run() error {
 		return fmt.Errorf("create shader basic2D: %w", err)
 	}
 
-	addRunnables(win)
+	addRunnables(engine, win)
 
 	if err := engine.Run(); err != nil {
 		return err
@@ -75,7 +77,7 @@ func run() error {
 	return nil
 }
 
-func addRunnables(win *notacore.GlfwWindow2D) {
+func addRunnables(engine *notacore.Engine, win *notacore.GlfwWindow2D) {
 	rect := notagl.Polygon{
 		Vertices: []notamath.Po2{
 			{-0.5, -0.5},
@@ -97,9 +99,24 @@ func addRunnables(win *notacore.GlfwWindow2D) {
 	renderLoop := win.Config.RenderLoop
 	renderer := win.RunTime.Renderer
 
-	logicLoop.Runnables = append(logicLoop.Runnables, func() error {
+	aSignal := &notacore.InputSignal{}
+	engine.Input.BindInput(notacore.KeyA, aSignal)
+
+	aAction := &notacore.Action{
+		Behavior: notacore.RunWhileHeld,
+	}
+	aAction.BindSignal(aSignal)
+	aAction.AddRunnable(func() error {
 		rect.Transform.Snapshot()
 		rect.Transform.RotateBy(0.01)
+		return nil
+	})
+
+	logicLoop.Runnables = append(logicLoop.Runnables, func() error {
+		rect.Transform.Snapshot()
+		if aAction.ShouldRun() {
+			return aAction.Run()
+		}
 		return nil
 	})
 

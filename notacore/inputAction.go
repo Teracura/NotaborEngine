@@ -1,6 +1,8 @@
 package notacore
 
-import "time"
+import (
+	"time"
+)
 
 type ActionBehavior int
 
@@ -79,10 +81,13 @@ func (a *Action) updateHoldInformation() {
 	a.LastHeldTime = a.lastHold.Sub(a.lastRelease)
 }
 
-func (a *Action) Run(on *FixedHzLoop) {
+func (a *Action) Run() error {
 	for _, r := range a.runnables {
-		on.OneTimeRunnables = append(on.OneTimeRunnables, r)
+		if err := r(); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func (a *Action) BindSignal(sig *InputSignal) {

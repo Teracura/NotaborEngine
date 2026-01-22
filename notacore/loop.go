@@ -22,6 +22,21 @@ type FixedHzLoop struct {
 
 	lastTick time.Time
 	delta    time.Duration
+
+	// monitoring
+	monitorEvery time.Duration
+	lastMonitor  time.Time
+	tickCount    uint64
+}
+
+// EnableMonitor prints actual Hz + avg tick time at the given interval.
+// Use interval = 0 to disable.
+func (l *FixedHzLoop) EnableMonitor(interval time.Duration) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.monitorEvery = interval
+	l.lastMonitor = time.Now()
+	l.tickCount = 0
 }
 
 type RenderLoop struct {
@@ -60,8 +75,13 @@ func (l *FixedHzLoop) Start() {
 				// Execute all runnables
 				l.mu.Lock()
 				l.lastTick = time.Now()
-				otr := append([]Runnable(nil), l.OneTimeRunnables...)
-				atr := append([]Runnable(nil), l.Runnables...) //all time runnables
+
+				otr := l.OneTimeRunnables
+				l.OneTimeRunnables = nil
+
+				atr := append([]Runnable(nil), l.Runnables...)
+				monitorEvery := l.monitorEvery
+				lastMonitor := l.lastMonitor
 				l.mu.Unlock()
 
 				for _, r := range otr {
@@ -80,8 +100,18 @@ func (l *FixedHzLoop) Start() {
 				}
 
 				l.mu.Lock()
-				l.OneTimeRunnables = nil
 				l.Runnables = newRunnables
+
+				// monitor
+				l.tickCount++
+				if monitorEvery > 0 && time.Since(lastMonitor) >= monitorEvery {
+					elapsed := time.Since(lastMonitor)
+					hz := float64(l.tickCount) / elapsed.Seconds()
+					avgTick := elapsed.Seconds() * 1000.0 / float64(l.tickCount)
+					fmt.Printf("[FixedHzLoop] actual=%.1f Hz, avg=%.2f ms\n", hz, avgTick)
+					l.lastMonitor = time.Now()
+					l.tickCount = 0
+				}
 				l.mu.Unlock()
 
 			case <-l.stop:

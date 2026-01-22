@@ -1,6 +1,10 @@
 package notacore
 
-import "github.com/go-gl/glfw/v3.3/glfw"
+import (
+	"sync"
+
+	"github.com/go-gl/glfw/v3.3/glfw"
+)
 
 type Input int
 
@@ -134,7 +138,7 @@ const (
 	KeyRightAlt
 	KeyRightSuper
 	KeyLeftCommand  //does not work yet
-	KeyRightCommand //does not work yet
+	KeyRightCommand // does not work yet
 	KeyOptionLeft   //does not work yet
 	KeyOptionRight  //does not work yet
 	KeyFn           //does not work yet
@@ -406,16 +410,27 @@ var glfwGamepadAxisMap = map[Input]glfw.GamepadAxis{
 type InputManager struct {
 	inputToSignal  map[Input][]*InputSignal
 	signalToAction map[*InputSignal][]*Action
+
+	mu     sync.RWMutex
+	active map[Input]bool // latest captured GLFW state
 }
 
-func (im *InputManager) BindInput(input Input, signal *InputSignal) {
-	if signal == nil {
-		return
+// UpdateSignals should be called once per logic tick (FixedHzLoop).
+// It snapshots last state and applies the latest captured state.
+func (im *InputManager) UpdateSignals() {
+	im.mu.RLock()
+	defer im.mu.RUnlock()
+
+	for input, signals := range im.inputToSignal {
+		active := im.active[input]
+		for _, sig := range signals {
+			if sig == nil {
+				continue
+			}
+			sig.Snapshot()
+			sig.Set(active)
+		}
 	}
-	if im.inputToSignal == nil {
-		im.inputToSignal = make(map[Input][]*InputSignal)
-	}
-	im.inputToSignal[input] = append(im.inputToSignal[input], signal)
 }
 
 func (im *InputManager) RegisterAction(action *Action) {
@@ -426,45 +441,6 @@ func (im *InputManager) RegisterAction(action *Action) {
 		im.signalToAction = make(map[*InputSignal][]*Action)
 	}
 	im.signalToAction[action.signal] = append(im.signalToAction[action.signal], action)
-}
-
-func (im *InputManager) CheckInputs(windows []Window) {
-	if len(im.inputToSignal) == 0 || len(windows) == 0 {
-		return
-	}
-
-	activeByInput := make(map[Input]bool, len(im.inputToSignal))
-	for input := range im.inputToSignal {
-		activeByInput[input] = false
-	}
-
-	for _, win := range windows {
-		if win == nil || win.ShouldClose() {
-			continue
-		}
-
-		win.MakeContextCurrent()
-
-		gamepads := connectedGamepads()
-
-		for input := range im.inputToSignal {
-			if activeByInput[input] {
-				continue // already active somewhere
-			}
-			activeByInput[input] = isInputActive(win, input, gamepads)
-		}
-	}
-
-	for input, signals := range im.inputToSignal {
-		active := activeByInput[input]
-		for _, sig := range signals {
-			if sig == nil {
-				continue
-			}
-			sig.Snapshot()
-			sig.Set(active)
-		}
-	}
 }
 
 func isInputActive(win Window, input Input, gamepads []*glfw.GamepadState) bool {
@@ -519,4 +495,56 @@ func connectedGamepads() []*glfw.GamepadState {
 		gamepads = append(gamepads, state)
 	}
 	return gamepads
+}
+
+func (im *InputManager) CaptureInputs(windows []Window) {
+	if im.active == nil {
+		im.active = make(map[Input]bool)
+	}
+
+	im.mu.Lock()
+	defer im.mu.Unlock()
+
+	// reset active map
+	for input := range im.inputToSignal {
+		im.active[input] = false
+	}
+
+	for _, win := range windows {
+		if win == nil || win.ShouldClose() {
+			continue
+		}
+
+		gamepads := connectedGamepads()
+
+		for input := range im.inputToSignal {
+			if im.active[input] {
+				continue
+			}
+			im.active[input] = isInputActive(win, input, gamepads)
+		}
+	}
+}
+
+func (im *InputManager) SnapshotSignals() {
+	im.mu.RLock()
+	defer im.mu.RUnlock()
+
+	for _, signals := range im.inputToSignal {
+		for _, sig := range signals {
+			if sig != nil {
+				sig.Snapshot()
+			}
+		}
+	}
+}
+
+func (im *InputManager) BindInput(input Input, sig *InputSignal) {
+	if im.inputToSignal == nil {
+		im.inputToSignal = make(map[Input][]*InputSignal)
+	}
+	im.inputToSignal[input] = append(im.inputToSignal[input], sig)
+	if im.active == nil {
+		im.active = make(map[Input]bool)
+	}
 }
