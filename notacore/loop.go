@@ -1,6 +1,7 @@
 package notacore
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -9,6 +10,8 @@ import (
 )
 
 type Runnable func() error
+
+var ErrRunOnce = errors.New("")
 
 type FixedHzLoop struct {
 	Hz float32
@@ -64,6 +67,10 @@ func (l *FixedHzLoop) Start() {
 
 				for i, r := range rs {
 					if err := r(); err != nil {
+						if errors.Is(err, ErrRunOnce) {
+							l.Remove(i)
+							continue
+						}
 						l.Remove(i)
 						fmt.Println(err)
 					}
