@@ -38,12 +38,17 @@ func (w *GlfwWindow2D) CreateShader(shader notashader.Shader) error {
 	if w.Shaders == nil {
 		w.Shaders = make(map[string]uint32)
 	}
-	_, err := w.GetShader(shader.Name)
-	if err == nil {
+
+	if _, found := w.Shaders[shader.Name]; found {
 		return errors.New("shader with name " + shader.Name + " already exists")
 	}
+
 	w.MakeContextCurrent()
-	w.Shaders[shader.Name] = notashader.CreateProgram(shader.VertexString, shader.FragmentString)
+	w.Shaders[shader.Name] = notashader.CreateProgram(
+		shader.VertexString,
+		shader.FragmentString,
+	)
+
 	return nil
 }
 
@@ -67,8 +72,8 @@ func (w *GlfwWindow3D) UpdateShader(shader notashader.Shader) error {
 }
 
 func (w *GlfwWindow3D) GetShader(name string) (uint32, error) {
-	value, notFound := w.Shaders[name]
-	if notFound {
+	value, found := w.Shaders[name]
+	if !found {
 		return 0, errors.New("shader with name " + name + " is not found")
 	}
 	return value, nil
@@ -78,12 +83,17 @@ func (w *GlfwWindow3D) CreateShader(shader notashader.Shader) error {
 	if w.Shaders == nil {
 		w.Shaders = make(map[string]uint32)
 	}
-	_, err := w.GetShader(shader.Name)
-	if err == nil {
+
+	if _, found := w.Shaders[shader.Name]; found {
 		return errors.New("shader with name " + shader.Name + " already exists")
 	}
 
-	w.Shaders[shader.Name] = notashader.CreateProgram(shader.VertexString, shader.FragmentString)
+	w.MakeContextCurrent()
+	w.Shaders[shader.Name] = notashader.CreateProgram(
+		shader.VertexString,
+		shader.FragmentString,
+	)
+
 	return nil
 }
 

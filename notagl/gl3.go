@@ -2,25 +2,27 @@ package notagl
 
 import (
 	"NotaborEngine/notamath"
+	"NotaborEngine/notashader"
 	"unsafe"
 
 	"github.com/go-gl/gl/v4.6-core/gl"
 )
 
 type DrawOrder3D struct {
-	Vertices []notamath.Po3
+	Vertices []Vertex3D
+}
+
+type Vertex3D struct {
+	Pos   notamath.Po3
+	Color notashader.Color
 }
 
 type Renderer3D struct {
 	Orders []DrawOrder3D
 }
 
-type Shape3D interface {
-	AddToOrders(orders *[]DrawOrder3D)
-}
-
-func (r *Renderer3D) Submit(s Shape3D) {
-	s.AddToOrders(&r.Orders)
+func (r *Renderer3D) Submit(m *Mesh, alpha float32) {
+	m.AddToOrders(&r.Orders, alpha)
 }
 
 type vertexFormat3D struct {
@@ -35,37 +37,62 @@ type GLBackend3D struct {
 }
 
 func (b *GLBackend3D) Init() {
-	b.format = vertexFormat3D{dimension: 3, stride: int32(unsafe.Sizeof(notamath.Po3{}))}
-	provideGlSettings(&b.vao, &b.vbo, b.format.stride, b.format.dimension)
-}
+	b.format = vertexFormat3D{
+		dimension: 3,
+		stride:    int32(unsafe.Sizeof(Vertex3D{})),
+	}
 
-func provideGlSettings(vao *uint32, vbo *uint32, stride int32, dimension int32) {
-	gl.CreateVertexArrays(1, vao)
-	gl.CreateBuffers(1, vbo)
-	gl.VertexArrayVertexBuffer(*vao, 0, *vbo, 0, stride)
-	gl.VertexArrayAttribFormat(*vao, 0, dimension, gl.FLOAT, false, 0)
-	gl.VertexArrayAttribBinding(*vao, 0, 0)
-	gl.EnableVertexArrayAttrib(*vao, 0)
-}
+	gl.CreateVertexArrays(1, &b.vao)
+	gl.CreateBuffers(1, &b.vbo)
 
-func (b *GLBackend3D) BindVao() {
-	gl.BindVertexArray(b.vao)
+	gl.VertexArrayVertexBuffer(b.vao, 0, b.vbo, 0, b.format.stride)
+
+	gl.VertexArrayAttribFormat(
+		b.vao,
+		0,
+		3,
+		gl.FLOAT,
+		false,
+		0,
+	)
+	gl.VertexArrayAttribBinding(b.vao, 0, 0)
+	gl.EnableVertexArrayAttrib(b.vao, 0)
+
+	colorOffset := uint32(unsafe.Sizeof(notamath.Po3{}))
+
+	gl.VertexArrayAttribFormat(
+		b.vao,
+		1,
+		4,
+		gl.FLOAT,
+		false,
+		colorOffset,
+	)
+	gl.VertexArrayAttribBinding(b.vao, 1, 0)
+	gl.EnableVertexArrayAttrib(b.vao, 1)
 }
 
 func (b *GLBackend3D) UploadData(vertices interface{}) {
-	verts := vertices.([]notamath.Po3)
-	gl.NamedBufferData(b.vbo, len(verts)*int(b.format.stride), gl.Ptr(verts), gl.DYNAMIC_DRAW)
+	verts := vertices.([]Vertex3D)
+	gl.NamedBufferData(
+		b.vbo,
+		len(verts)*int(b.format.stride),
+		gl.Ptr(verts),
+		gl.DYNAMIC_DRAW,
+	)
 }
 
 func (r *Renderer3D) Flush(backend *GLBackend3D) {
-	var flat []notamath.Po3
+	var flat []Vertex3D
 	for _, order := range r.Orders {
-		flat = append(flat, order.Vertices...)
+		tris := order.Vertices
+		flat = append(flat, tris...)
 	}
+
 	if len(flat) == 0 {
 		return
 	}
 	backend.UploadData(flat)
-	backend.BindVao()
+	gl.BindVertexArray(backend.vao)
 	gl.DrawArrays(gl.TRIANGLES, 0, int32(len(flat)))
 }
