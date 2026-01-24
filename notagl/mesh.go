@@ -5,14 +5,14 @@ import (
 	"NotaborEngine/notashader"
 )
 
-type mesh struct {
+type Mesh struct {
 	Vertices  []notamath.Po3
 	Transform notamath.Transform3D
 	Color     notashader.Color
 	Colors    []notashader.Color
 }
 
-func (m *mesh) Fixate() {
+func (m *Mesh) Fixate() {
 	center := meshCentroid(m.Vertices)
 
 	local := make([]notamath.Po3, len(m.Vertices))
@@ -49,7 +49,7 @@ func (m *mesh) AddToOrders(orders *[]DrawOrder3D, alpha float32) {
 		Vertices: verts,
 	})
 }
-func (m *mesh) SetHorizontalGradient(
+func (m *Mesh) SetHorizontalGradient(
 	left, right notashader.Color,
 ) {
 	m.Colors = make([]notashader.Color, len(m.Vertices))
@@ -74,7 +74,8 @@ func (m *mesh) SetHorizontalGradient(
 		m.Colors[i] = left.Lerp(right, t)
 	}
 }
-func (m *mesh) SetVerticalGradient(
+
+func (m *Mesh) SetVerticalGradient(
 	bottom, top notashader.Color,
 ) {
 	if len(m.Colors) != len(m.Vertices) {
@@ -98,10 +99,11 @@ func (m *mesh) SetVerticalGradient(
 
 	for i, v := range m.Vertices {
 		t := (v.Y - minY) / ry
-		m.Colors[i] = m.Colors[i].Lerp(top, t)
+		m.Colors[i] = bottom.Lerp(top, t)
 	}
 }
-func (m *mesh) SetDepthGradient(
+
+func (m *Mesh) SetDepthGradient(
 	near, far notashader.Color,
 ) {
 	if len(m.Colors) != len(m.Vertices) {
@@ -125,7 +127,7 @@ func (m *mesh) SetDepthGradient(
 
 	for i, v := range m.Vertices {
 		t := (v.Z - minZ) / rz
-		m.Colors[i] = m.Colors[i].Lerp(far, t)
+		m.Colors[i] = near.Lerp(far, t)
 	}
 }
 

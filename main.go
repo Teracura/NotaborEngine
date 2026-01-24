@@ -47,28 +47,19 @@ func run() error {
 		RenderLoop: renderLoop,
 	}
 
-	win, err := engine.CreateWindow2D(cfg)
+	win, err := engine.CreateWindow3D(cfg)
 	if err != nil {
 		return err
 	}
 	win.MakeContextCurrent()
 
 	if err := win.CreateShader(notashader.Shader{
-		Name:           "circle2D",
-		VertexString:   notashader.Circle2DVertex,
-		FragmentString: notashader.Circle2DFragment,
+		Name:           "basic3D",
+		VertexString:   notashader.Vertex3D,
+		FragmentString: notashader.Fragment3D,
 	}); err != nil {
-		return fmt.Errorf("create shader circle2D: %w", err)
+		return fmt.Errorf("create shader: %w", err)
 	}
-
-	if err := win.CreateShader(notashader.Shader{
-		Name:           "basic2D",
-		VertexString:   notashader.Vertex2D,
-		FragmentString: notashader.Fragment2D,
-	}); err != nil {
-		return fmt.Errorf("create shader basic2D: %w", err)
-	}
-
 	addRunnables(engine, win)
 
 	if err := engine.Run(); err != nil {
@@ -77,27 +68,82 @@ func run() error {
 	return nil
 }
 
-func addRunnables(engine *notacore.Engine, win *notacore.GlfwWindow2D) {
-	rect := notagl.Polygon{
-		Vertices: []notamath.Po2{
-			{-0.5, -0.5},
-			{0.5, -0.5},
-			{0.5, 0.5},
-			{-0.5, 0.5},
+func addRunnables(engine *notacore.Engine, win *notacore.GlfwWindow3D) {
+	cube := &notagl.Mesh{
+		Vertices: []notamath.Po3{
+			// Back face
+			{-0.5, -0.5, -0.5}, {0.5, -0.5, -0.5}, {0.5, 0.5, -0.5},
+			{-0.5, -0.5, -0.5}, {0.5, 0.5, -0.5}, {-0.5, 0.5, -0.5},
+
+			// Front face
+			{-0.5, -0.5, 0.5}, {0.5, 0.5, 0.5}, {0.5, -0.5, 0.5},
+			{-0.5, -0.5, 0.5}, {-0.5, 0.5, 0.5}, {0.5, 0.5, 0.5},
+
+			// Left face
+			{-0.5, -0.5, -0.5}, {-0.5, 0.5, -0.5}, {-0.5, 0.5, 0.5},
+			{-0.5, -0.5, -0.5}, {-0.5, 0.5, 0.5}, {-0.5, -0.5, 0.5},
+
+			// Right face
+			{0.5, -0.5, -0.5}, {0.5, 0.5, 0.5}, {0.5, 0.5, -0.5},
+			{0.5, -0.5, -0.5}, {0.5, -0.5, 0.5}, {0.5, 0.5, 0.5},
+
+			// Bottom face
+			{-0.5, -0.5, -0.5}, {-0.5, -0.5, 0.5}, {0.5, -0.5, 0.5},
+			{-0.5, -0.5, -0.5}, {0.5, -0.5, 0.5}, {0.5, -0.5, -0.5},
+
+			// Top face
+			{-0.5, 0.5, -0.5}, {0.5, 0.5, 0.5}, {-0.5, 0.5, 0.5},
+			{-0.5, 0.5, -0.5}, {0.5, 0.5, -0.5}, {0.5, 0.5, 0.5},
 		},
-		Transform: notamath.NewTransform2D(),
+		Transform: notamath.NewTransform3D(),
 		Colors: []notashader.Color{
-			notashader.White,
 			notashader.Red,
+			notashader.Red,
+			notashader.Red,
+			notashader.Blue,
+			notashader.Blue,
+			notashader.Blue,
+			notashader.Red,
+			notashader.Red,
+			notashader.Red,
+			notashader.Blue,
+			notashader.Blue,
+			notashader.Blue,
+			notashader.Navy,
+			notashader.Navy,
+			notashader.Navy,
+			notashader.Blue,
+			notashader.Navy,
+			notashader.Navy,
+			notashader.Maroon,
+			notashader.Maroon,
+			notashader.Maroon,
+			notashader.Red,
+			notashader.Maroon,
+			notashader.Maroon,
+			notashader.Olive,
+			notashader.Olive,
+			notashader.Olive,
+			notashader.Olive,
+			notashader.Olive,
+			notashader.Olive,
 			notashader.Purple,
-			notashader.White,
+			notashader.Purple,
+			notashader.Purple,
+			notashader.Purple,
+			notashader.Purple,
+			notashader.Purple,
 		},
 	}
-	rect.Fixate()
+	cube.Fixate()
+	cube.SetDepthGradient(notashader.Blue, notashader.Magenta)
 
 	logicLoop := win.Config.LogicLoops[0]
 	renderLoop := win.Config.RenderLoop
 	renderer := win.RunTime.Renderer
+
+	var currentAxis = notamath.Vec3{X: 0.2, Y: 1, Z: 0.5}
+	cube.Transform.RotationAxis = currentAxis
 
 	aSignal := &notacore.InputSignal{}
 	engine.Input.BindInput(notacore.KeyA, aSignal)
@@ -107,13 +153,13 @@ func addRunnables(engine *notacore.Engine, win *notacore.GlfwWindow2D) {
 	}
 	aAction.BindSignal(aSignal)
 	aAction.AddRunnable(func() error {
-		rect.Transform.Snapshot()
-		rect.Transform.RotateBy(0.01)
+		cube.Transform.Snapshot()
+		cube.Transform.RotateBy(0.01)
 		return nil
 	})
 
 	logicLoop.Runnables = append(logicLoop.Runnables, func() error {
-		rect.Transform.Snapshot()
+		cube.Transform.Snapshot()
 		if aAction.ShouldRun() {
 			return aAction.Run()
 		}
@@ -121,12 +167,12 @@ func addRunnables(engine *notacore.Engine, win *notacore.GlfwWindow2D) {
 	})
 
 	renderLoop.Runnables = append(renderLoop.Runnables, func() error {
-		if err := win.UseShader("circle2D"); err != nil {
+		if err := win.UseShader("basic3D"); err != nil {
 			return err
 		}
 
 		alpha := logicLoop.Alpha(time.Now())
-		renderer.Submit(rect, alpha)
+		renderer.Submit(cube, alpha)
 		return nil
 	})
 }
