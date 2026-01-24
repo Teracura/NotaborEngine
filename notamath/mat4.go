@@ -1,22 +1,17 @@
 package notamath
 
-import (
-	"math"
-)
+import "math"
 
 type Mat4 struct {
 	M [16]float32
 }
 
 type Transform3D struct {
-	Position     Vec3
-	Rotation     Vec3 // Reference vector for rotation
-	Scale        Vec3
-	Dirty        bool // true if matrix needs to be recomputed
-	matrix       Mat4 // cached TRS matrix
-	prevPosition Vec3
-	prevRotation Vec3
-	prevScale    Vec3
+	Position Vec3
+	Rotation Vec3 // Reference vector for rotation
+	Scale    Vec3
+	Dirty    bool // true if matrix needs to be recomputed
+	matrix   Mat4 // cached TRS matrix
 }
 
 func Mat4Identity() Mat4 {
@@ -435,19 +430,4 @@ func (t *Transform3D) WorldMatrix(parent *Transform3D) Mat4 {
 		return t.Matrix()
 	}
 	return parent.Matrix().SmartMul(t.Matrix())
-}
-func lerpInDimVec3(a, b Vec3, alpha float32, dim Vec3) Vec3 {
-	return Vec3{
-		X: a.X + (b.X-a.X)*(alpha*dim.X),
-		Y: a.Y + (b.Y-a.Y)*(alpha*dim.Y),
-		Z: a.Z + (b.Z-a.Z)*(alpha*dim.Z),
-	}
-}
-
-func (t *Transform3D) InterpolatedMatrix(alpha float32) Mat4 {
-	pos := t.prevPosition.Lerp(t.Position, alpha)
-	scale := t.prevScale.Lerp(t.Scale, alpha)
-	rot := lerpInDimVec3(t.prevRotation, t.Rotation, alpha, dim)
-
-	return Mat4TRS(pos, dim, rot, scale)
 }
