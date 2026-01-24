@@ -27,8 +27,8 @@ func (m *Mesh) Fixate() {
 	m.Vertices = local
 	m.Transform.Position = notamath.Vec3(center)
 }
-func (m *mesh) AddToOrders(orders *[]DrawOrder3D, alpha float32) {
-	mat := m.Transform.InterpolatedMatrix(alpha, 0)
+func (m *Mesh) AddToOrders(orders *[]DrawOrder3D, alpha float32) {
+	mat := m.Transform.InterpolatedMatrix(alpha)
 
 	verts := make([]Vertex3D, len(m.Vertices))
 	useGradient := len(m.Colors) == len(m.Vertices)
