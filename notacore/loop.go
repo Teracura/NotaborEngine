@@ -72,7 +72,6 @@ func (l *FixedHzLoop) Start() {
 		for {
 			select {
 			case <-ticker.C:
-				// Execute all runnables
 				l.mu.Lock()
 				l.lastTick = time.Now()
 
@@ -90,7 +89,7 @@ func (l *FixedHzLoop) Start() {
 					}
 				}
 
-				newRunnables := atr[:0] // reuse underlying array
+				newRunnables := atr[:0]
 				for _, r := range atr {
 					if err := r(); err != nil {
 						fmt.Println(err)

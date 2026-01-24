@@ -433,16 +433,6 @@ func (im *InputManager) UpdateSignals() {
 	}
 }
 
-func (im *InputManager) RegisterAction(action *Action) {
-	if action == nil || action.signal == nil {
-		return
-	}
-	if im.signalToAction == nil {
-		im.signalToAction = make(map[*InputSignal][]*Action)
-	}
-	im.signalToAction[action.signal] = append(im.signalToAction[action.signal], action)
-}
-
 func isInputActive(win Window, input Input, gamepads []*glfw.GamepadState) bool {
 	if key, ok := glfwKeyMap[input]; ok {
 		return win.GLFW().GetKey(key) == glfw.Press
@@ -522,19 +512,6 @@ func (im *InputManager) CaptureInputs(windows []Window) {
 				continue
 			}
 			im.active[input] = isInputActive(win, input, gamepads)
-		}
-	}
-}
-
-func (im *InputManager) SnapshotSignals() {
-	im.mu.RLock()
-	defer im.mu.RUnlock()
-
-	for _, signals := range im.inputToSignal {
-		for _, sig := range signals {
-			if sig != nil {
-				sig.Snapshot()
-			}
 		}
 	}
 }
