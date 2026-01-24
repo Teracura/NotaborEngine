@@ -2,6 +2,7 @@ package notagl
 
 import (
 	"NotaborEngine/notamath"
+	"NotaborEngine/notashader"
 	"unsafe"
 
 	"github.com/go-gl/gl/v4.6-core/gl"
@@ -9,6 +10,11 @@ import (
 
 type DrawOrder3D struct {
 	Vertices []Vertex3D
+}
+
+type Vertex3D struct {
+	Pos   notamath.Po3
+	Color notashader.Color
 }
 
 type Renderer3D struct {
