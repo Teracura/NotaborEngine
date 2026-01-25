@@ -142,3 +142,30 @@ a phyics engine made in **golang** designed to make game dev easier by providing
   - ### Renderer3D
     (WORK IN PROGRESS)
 ## notamath
+- ### Objects
+  - `Mat3`type`struct`
+  - `Mat4`type`struct`
+  - `Po2`type`struct`
+  - `Po3`type`struct`
+  - `Transform2D`type`struct`
+  - `Transform3D `type `struct`
+  - `AxisMask` type `enum`
+  - `Vec2`type`struct`
+  - `Vec3`type`struct`
+- ### Mat3
+  - #### content
+    - `Mat3` type `[9]float32` 
+  - #### funcations
+    - `func Mat3Identity() Mat3` Returns an identity 3×3 matrix.
+    - `func Mat3Translation(t Vec2) Mat3` Translates a shape by vector t
+    - `func Mat3Scale(s Vec2) Mat3` Scales a shape by vector s.
+    - `func Mat3Rotation(rad float32) Mat3` Rotates a shape by rad radians.
+    - `func Mat3Shear(kx, ky float32) Mat3` Shears a shape by kx and ky.
+    - `func Mat3TRS(pos Vec2, rot float32, scale Vec2) Mat3`Translates by pos, rotates by rot, and scales by scale.
+    - `func (m Mat3) Mul(b Mat3) Mat3`Multiplies matrix m by matrix b  (note: multiplication order may affect the result).
+    - `func (m Mat3) TransformPo2(p Po2) Po2` Applies a linear transformation to a point.
+    - `func (m Mat3) TransformVec2(v Vec2) Vec2` Applies a linear transformation to a vector.
+    - `func (m Mat3) Transpose() Mat3` Returns the transposed matrix.
+    - `func (m Mat3) Det() float32` Returns the matrix determinant.
+    -  `func (m Mat3) InverseAffine() Mat3` Returns the inverse affine transformation.
+    -  `func (m Mat3) String() string` Returns a string representation of the matrix.
