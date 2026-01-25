@@ -187,3 +187,25 @@ a phyics engine made in **golang** designed to make game dev easier by providing
     - `func Mat4Ortho(left, right, bottom, top, near, far float32) Mat4` Creates an orthographic projection matrix for 3D rendering
     - `func (m Mat4) InverseAffine() Mat4` Returns the inverse affine transformation.
     - `func (m Mat4) NormalMatrix() Mat3` Computes inverse and transpose for normal vectors
+- ### Po2
+  - #### content
+     - `Po2` type `X,Y float32`
+  - #### functions
+     - `func (p Po2) Add(v Vec2) Po2` Adds a vector to a 2D point
+     - `func (p Po2) Sub(q Po2) Vec2` Produces a vector by subtracting a 2D point from a 2D point
+     - `func (p Po2) DistanceSquared(q Po2) float32` Returns squared distance between two 2D points
+     - `func (p Po2) Distance(q Po2) float32` Returns distance between two 2D points
+     - `func (p Po2) Equals(q Po2, eps float32) bool` Checks approximate 2D point equality within epsilon tolerance
+     - `func (p Po2) String() string` Returns formatted string representation of a 2D point
+     - `func Orient(a, b, c Po2) float32` Computes 2D orientation / signed triangle area
+- ### Po3
+  - #### content
+    - `Po3` type `X,Y,Z float32`
+  - #### functions
+     - `func (p Po3) Add(v Vec3) Po3` Adds a vector to a 3D point
+     - `func (p Po3) SubPo(q Po3) Vec3` Produces a vector by subtracting a 3D point from a 3D point
+     - `func (p Po3) SubVec(q Vec3) Vec3` Subtracts vector from point, returns displacement vector
+     - `func (p Po3) DistanceSquared(q Po3) float32` Returns squared distance between two 3D points
+     - `func (p Po3) Distance(q Po3) float32` Returns distance between two 3D points
+     - `func (p Po3) Equals(q Po3, eps float32) bool` Checks approximate 3D point equality within epsilon tolerance
+     - `func (p Po3) String() string` Returns formatted string representation of a 3D point          
