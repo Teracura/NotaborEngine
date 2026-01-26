@@ -208,4 +208,53 @@ a phyics engine made in **golang** designed to make game dev easier by providing
      - `func (p Po3) DistanceSquared(q Po3) float32` Returns squared distance between two 3D points
      - `func (p Po3) Distance(q Po3) float32` Returns distance between two 3D points
      - `func (p Po3) Equals(q Po3, eps float32) bool` Checks approximate 3D point equality within epsilon tolerance
-     - `func (p Po3) String() string` Returns formatted string representation of a 3D point          
+     - `func (p Po3) String() string` Returns formatted string representation of a 3D point
+- ### Transform2D
+  - ##### content
+     - `Position` type `Vec2`
+     - `Rotation` type `float32`
+     - `Scale` type `Vec2`
+     - `Dirty` type `bool`
+  - #### functions
+     - `func NewTransform2D() Transform2D` Initializes Transform2D with unit scale and identity matrix
+     - `func (t *Transform2D) SetPosition(p Vec2)` Sets position and marks transform as dirty
+     - `func (t *Transform2D) SetRotation(r float32)` Sets rotation and marks transform as dirty
+     - `func (t *Transform2D) SetScale(s Vec2)` Sets scale and marks transform as dirty
+     - `func (t *Transform2D) Matrix() Mat3` Returns cached transform matrix, recomputing only when marked dirty
+     - `func (t *Transform2D) TransformPoint(p Po2) Po2` Marks transform as dirty, forcing matrix recomputation
+     - `func (t *Transform2D) TransformVector(v Vec2) Vec2` Transforms vector using current 2D transformation matrix
+     - `func (t *Transform2D) TranslateBy(delta Vec2)` Adds delta to position, marking transform dirty
+     - `func (t *Transform2D) RotateBy(delta float32)` Adds delta to rotation, marks transform dirty
+     - `func (t *Transform2D) ScaleBy(factor Vec2)` Multiplies scale by factor, marking transform dirty
+     - `func (t *Transform2D) Snapshot()` Stores current transform values for later interpolation
+     - `func (t *Transform2D) InterpolatedMatrix(alpha float32) Mat3` Builds interpolated transform matrix between previous and current states
+- ### Transform3D
+  - #### content
+     - `Position` type `Vec3`
+     - `RotationAxis` type `Vec3`
+     - `Rotation` type `float32`
+     - `Scale ` type `Vec3`
+     - `Dirty` type `bool`
+     - `AxisMask` type `uint8` (Bitmask enum representing selectable X, Y, Z axis combinations)  
+  - #### functions
+     - `func NewTransform3D() Transform3D` Initializes Transform3D with unit scale and identity matrix
+     - `func (t *Transform3D) SetPosition(p Vec3)` Sets position and marks transform as dirty
+     - `func (t *Transform3D) SetRotationAxis(r Vec3)` Sets normalized rotation axis, marks transform dirty
+     - `func (t *Transform3D) SetScale(s Vec3)` Sets scale and marks transform as dirty
+     - `func (t *Transform3D) Matrix() Mat4` Returns cached transform matrix, recomputing only when marked dirty
+     - `func (t *Transform3D) TransformPo3(p Po3) Po3` Marks transform as dirty, forcing matrix recomputation
+     - `func (t *Transform3D) TransformVec3(v Vec3) Vec3` Transforms vector using current 3D transformation matrix
+     - `func (t *Transform3D) TranslateBy(delta Vec3)`  Adds delta to position, marking transform dirty
+     - `func (t *Transform3D) RotateBy(delta float32)` Adds delta to rotation, marks transform dirty
+     - `func (t *Transform3D) ScaleBy(factor Vec3)` Multiplies scale by factor, marking transform dirty
+     - `func (t *Transform3D) Snapshot()`Stores current transform values for later interpolation
+     - `func (t *Transform3D) InterpolatedMatrix(alpha float32) Mat4`  Builds interpolated transform matrix between previous and current states
+
+
+
+
+
+
+
+    
+    	             
