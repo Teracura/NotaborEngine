@@ -155,7 +155,7 @@ a phyics engine made in **golang** designed to make game dev easier by providing
 - ### Mat3
   - #### content
     - `Mat3` type `[9]float32` 
-  - #### funcations
+  - #### functions
     - `func Mat3Identity() Mat3` Returns an identity 3×3 matrix.
     - `func Mat3Translation(t Vec2) Mat3` Translates a shape by vector t
     - `func Mat3Scale(s Vec2) Mat3` Scales a shape by vector s.
@@ -172,7 +172,7 @@ a phyics engine made in **golang** designed to make game dev easier by providing
 -  ### Mat4
   - #### content
     - `Mat4` type `[16]float32` 
-  - #### funcations
+  - #### functions
     - `func Mat4Identity() Mat4` Returns an identity 4×4 matrix.
     - `func Mat4Translation(t Vec3) Mat4` Translates a shape by vector t.
     - `func Mat4Scale(s Vec3) Mat4` Scales a shape by vector s.
