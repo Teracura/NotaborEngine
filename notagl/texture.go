@@ -22,6 +22,7 @@ type Texture struct {
 }
 
 // LoadImageData loads image data from file
+// notagl/texture.go - Update LoadImageData
 func LoadImageData(path string) (*Texture, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -30,8 +31,6 @@ func LoadImageData(path string) (*Texture, error) {
 	defer file.Close()
 
 	var img image.Image
-
-	// Check file extension to determine format
 	ext := strings.ToLower(filepath.Ext(path))
 
 	switch ext {
@@ -40,12 +39,11 @@ func LoadImageData(path string) (*Texture, error) {
 	case ".png":
 		img, err = png.Decode(file)
 	default:
-		// Try to auto-detect
 		img, _, err = image.Decode(file)
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode image (format: %s): %w", ext, err)
+		return nil, fmt.Errorf("failed to decode image: %w", err)
 	}
 
 	rgba := image.NewRGBA(img.Bounds())
@@ -53,17 +51,26 @@ func LoadImageData(path string) (*Texture, error) {
 		return nil, fmt.Errorf("unsupported stride")
 	}
 
-	draw.Draw(rgba, rgba.Bounds(), img, image.Point{}, draw.Src)
+	// Flip vertically while drawing
+	bounds := rgba.Bounds()
+	for y := 0; y < bounds.Dy(); y++ {
+		srcY := bounds.Dy() - 1 - y // Flip Y coordinate
+		draw.Draw(rgba,
+			image.Rect(bounds.Min.X, y, bounds.Max.X, y+1),
+			img,
+			image.Point{X: bounds.Min.X, Y: srcY},
+			draw.Src)
+	}
 
 	width := int32(rgba.Rect.Size().X)
 	height := int32(rgba.Rect.Size().Y)
 
 	return &Texture{
-		ID:        0, // Will be set when we create OpenGL texture
+		ID:        0,
 		Width:     width,
 		Height:    height,
-		ImageData: rgba.Pix, // Store the pixel data
-		Loaded:    false,    // OpenGL texture not created yet
+		ImageData: rgba.Pix,
+		Loaded:    false,
 	}, nil
 }
 
