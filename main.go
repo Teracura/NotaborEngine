@@ -1,178 +1,68 @@
+// cmd/test_entity/main.go
 package main
 
 import (
-	"NotaborEngine/notacore"
+	"fmt"
+	"log"
+
 	"NotaborEngine/notagl"
 	"NotaborEngine/notamath"
 	"NotaborEngine/notashader"
-	"fmt"
-	"runtime"
-	"time"
+	"NotaborEngine/notassets"
 )
 
-func init() {
-	runtime.LockOSThread()
-}
-
 func main() {
-	if err := run(); err != nil {
-		panic(err)
-	}
-}
-
-func run() error {
-	engine := &notacore.Engine{
-		Settings: &notacore.Settings{},
-		Input:    &notacore.InputManager{},
+	// Create a mock texture
+	mockTexture := &notassets.Texture{
+		ID:     1,
+		Width:  64,
+		Height: 64,
 	}
 
-	if err := engine.InitPlatform(); err != nil {
-		return err
-	}
-	defer engine.Shutdown()
-
-	renderLoop := &notacore.RenderLoop{MaxHz: 60}
-	logicLoop := &notacore.FixedHzLoop{Hz: 1000}
-	logicLoop.EnableMonitor(1 * time.Second)
-
-	cfg := notacore.WindowConfig{
-		X:          350,
-		Y:          50,
-		W:          800,
-		H:          800,
-		Title:      "Test Window 1",
-		Resizable:  true,
-		Type:       notacore.Windowed,
-		LogicLoops: []*notacore.FixedHzLoop{logicLoop},
-		RenderLoop: renderLoop,
+	// Create a sprite
+	sprite := &notassets.Sprite{
+		Texture: mockTexture,
+		Name:    "player_sprite",
+		X:       0,
+		Y:       0,
 	}
 
-	win, err := engine.CreateWindow3D(cfg)
-	if err != nil {
-		return err
-	}
-	win.MakeContextCurrent()
+	// Test 1: Create entity with sprite
+	entity1 := notassets.NewEntity("ent1", "Player", sprite)
 
-	if err := win.CreateShader(notashader.Shader{
-		Name:           "basic3D",
-		VertexString:   notashader.Vertex3D,
-		FragmentString: notashader.Fragment3D,
-	}); err != nil {
-		return fmt.Errorf("create shader: %w", err)
-	}
-	addRunnables(engine, win)
+	fmt.Printf("Entity 1:\n")
+	fmt.Printf("  ID: %s, Name: %s\n", entity1.ID, entity1.Name)
+	fmt.Printf("  Active: %v, Visible: %v\n", entity1.Active, entity1.Visible)
+	fmt.Printf("  Sprite position: (%d, %d)\n", entity1.Sprite.X, entity1.Sprite.Y)
 
-	if err := engine.Run(); err != nil {
-		return err
-	}
-	return nil
-}
+	// Test position setting
+	entity1.SetPosition(100, 150)
+	x, y := entity1.GetPosition()
+	fmt.Printf("  After SetPosition(100, 150): (%.0f, %.0f)\n", x, y)
 
-func addRunnables(engine *notacore.Engine, win *notacore.GlfwWindow3D) {
-	cube := &notagl.Mesh{
-		Vertices: []notamath.Po3{
-			// Back face
-			{-0.5, -0.5, -0.5}, {0.5, -0.5, -0.5}, {0.5, 0.5, -0.5},
-			{-0.5, -0.5, -0.5}, {0.5, 0.5, -0.5}, {-0.5, 0.5, -0.5},
+	// Test 2: Create entity with polygon
+	rect := notagl.CreateRectangle(notamath.Po2{X: 0, Y: 0}, 50, 50)
+	rect.SetColor(notashader.Color{R: 1, G: 0, B: 0, A: 1})
 
-			// Front face
-			{-0.5, -0.5, 0.5}, {0.5, 0.5, 0.5}, {0.5, -0.5, 0.5},
-			{-0.5, -0.5, 0.5}, {-0.5, 0.5, 0.5}, {0.5, 0.5, 0.5},
+	entity2 := notassets.NewEntityWithPolygon("ent2", "Red Square", rect)
 
-			// Left face
-			{-0.5, -0.5, -0.5}, {-0.5, 0.5, -0.5}, {-0.5, 0.5, 0.5},
-			{-0.5, -0.5, -0.5}, {-0.5, 0.5, 0.5}, {-0.5, -0.5, 0.5},
+	fmt.Printf("\nEntity 2:\n")
+	fmt.Printf("  ID: %s, Name: %s\n", entity2.ID, entity2.Name)
+	fmt.Printf("  Has polygon: %v (vertices: %d)\n",
+		len(entity2.Polygon.Vertices) > 0,
+		len(entity2.Polygon.Vertices))
 
-			// Right face
-			{0.5, -0.5, -0.5}, {0.5, 0.5, 0.5}, {0.5, 0.5, -0.5},
-			{0.5, -0.5, -0.5}, {0.5, -0.5, 0.5}, {0.5, 0.5, 0.5},
+	entity2.SetPosition(200, 300)
+	x2, y2 := entity2.GetPosition()
+	fmt.Printf("  Position: (%.0f, %.0f)\n", x2, y2)
 
-			// Bottom face
-			{-0.5, -0.5, -0.5}, {-0.5, -0.5, 0.5}, {0.5, -0.5, 0.5},
-			{-0.5, -0.5, -0.5}, {0.5, -0.5, 0.5}, {0.5, -0.5, -0.5},
+	// Test 3: Toggle visibility
+	entity1.Visible = false
+	entity2.Active = false
 
-			// Top face
-			{-0.5, 0.5, -0.5}, {0.5, 0.5, 0.5}, {-0.5, 0.5, 0.5},
-			{-0.5, 0.5, -0.5}, {0.5, 0.5, -0.5}, {0.5, 0.5, 0.5},
-		},
-		Transform: notamath.NewTransform3D(),
-		Colors: []notashader.Color{
-			notashader.Red,
-			notashader.Red,
-			notashader.Red,
-			notashader.Blue,
-			notashader.Blue,
-			notashader.Blue,
-			notashader.Red,
-			notashader.Red,
-			notashader.Red,
-			notashader.Blue,
-			notashader.Blue,
-			notashader.Blue,
-			notashader.Navy,
-			notashader.Navy,
-			notashader.Navy,
-			notashader.Blue,
-			notashader.Navy,
-			notashader.Navy,
-			notashader.Maroon,
-			notashader.Maroon,
-			notashader.Maroon,
-			notashader.Red,
-			notashader.Maroon,
-			notashader.Maroon,
-			notashader.Olive,
-			notashader.Olive,
-			notashader.Olive,
-			notashader.Olive,
-			notashader.Olive,
-			notashader.Olive,
-			notashader.Purple,
-			notashader.Purple,
-			notashader.Purple,
-			notashader.Purple,
-			notashader.Purple,
-			notashader.Purple,
-		},
-	}
-	cube.Fixate()
-	cube.SetDepthGradient(notashader.Blue, notashader.Magenta)
+	fmt.Printf("\nState changes:\n")
+	fmt.Printf("  Entity1 visible: %v\n", entity1.Visible)
+	fmt.Printf("  Entity2 active: %v\n", entity2.Active)
 
-	logicLoop := win.Config.LogicLoops[0]
-	renderLoop := win.Config.RenderLoop
-	renderer := win.RunTime.Renderer
-
-	var currentAxis = notamath.Vec3{X: 0.2, Y: 1, Z: 0.5}
-	cube.Transform.RotationAxis = currentAxis
-
-	aSignal := &notacore.InputSignal{}
-	engine.Input.BindInput(notacore.KeyA, aSignal)
-
-	aAction := &notacore.Action{
-		Behavior: notacore.RunWhileHeld,
-	}
-	aAction.BindSignal(aSignal)
-	aAction.AddRunnable(func() error {
-		cube.Transform.Snapshot()
-		cube.Transform.RotateBy(0.01)
-		return nil
-	})
-
-	logicLoop.Runnables = append(logicLoop.Runnables, func() error {
-		cube.Transform.Snapshot()
-		if aAction.ShouldRun() {
-			return aAction.Run()
-		}
-		return nil
-	})
-
-	renderLoop.Runnables = append(renderLoop.Runnables, func() error {
-		if err := win.UseShader("basic3D"); err != nil {
-			return err
-		}
-
-		alpha := logicLoop.Alpha(time.Now())
-		renderer.Submit(cube, alpha)
-		return nil
-	})
+	log.Println("Entity test completed successfully")
 }
