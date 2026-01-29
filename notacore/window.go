@@ -34,6 +34,10 @@ type Window interface {
 	DeleteShader(name string) uint32
 	UseShader(name string) error
 	SetWindowType(t WindowType) error
+	LoadTexture(name, path string) (*notagl.Texture, error)
+	GetTexture(name string) (*notagl.Texture, error)
+	UnloadTexture(name string) error
+
 	GLFW() *glfw.Window
 }
 
@@ -44,14 +48,16 @@ type WindowBaseRuntime struct {
 
 type windowRunTime2D struct {
 	WindowBaseRuntime
-	backend  *notagl.GLBackend2D
-	Renderer *notagl.Renderer2D
+	backend    *notagl.GLBackend2D
+	Renderer   *notagl.Renderer2D
+	TextureMgr *notagl.TextureManager
 }
 
 type windowRuntime3D struct {
 	WindowBaseRuntime
-	backend  *notagl.GLBackend3D
-	Renderer *notagl.Renderer3D
+	backend    *notagl.GLBackend3D
+	Renderer   *notagl.Renderer3D
+	TextureMgr *notagl.TextureManager
 }
 
 type GlfwWindow2D struct {
@@ -143,8 +149,9 @@ func (wm *windowManager) Create2D(cfg WindowConfig) (*GlfwWindow2D, error) {
 				lastRender: time.Now(),
 				targetDt:   time.Second / time.Duration(cfg.RenderLoop.MaxHz),
 			},
-			backend:  &notagl.GLBackend2D{},
-			Renderer: &notagl.Renderer2D{},
+			backend:    &notagl.GLBackend2D{},
+			Renderer:   &notagl.Renderer2D{},
+			TextureMgr: notagl.NewTextureManager(),
 		},
 	}
 
@@ -208,8 +215,9 @@ func (wm *windowManager) Create3D(cfg WindowConfig) (*GlfwWindow3D, error) {
 				lastRender: time.Now(),
 				targetDt:   time.Second / time.Duration(cfg.RenderLoop.MaxHz),
 			},
-			backend:  &notagl.GLBackend3D{},
-			Renderer: &notagl.Renderer3D{},
+			backend:    &notagl.GLBackend3D{},
+			Renderer:   &notagl.Renderer3D{},
+			TextureMgr: notagl.NewTextureManager(),
 		},
 	}
 
