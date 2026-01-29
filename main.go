@@ -1,68 +1,103 @@
-// cmd/test_entity/main.go
+// cmd/test_window_texture/main.go
 package main
 
 import (
-	"fmt"
 	"log"
+	"path/filepath"
 
+	"NotaborEngine/notacore"
 	"NotaborEngine/notagl"
 	"NotaborEngine/notamath"
 	"NotaborEngine/notashader"
-	"NotaborEngine/notassets"
 )
 
 func main() {
-	// Create a mock texture
-	mockTexture := &notassets.Texture{
-		ID:     1,
-		Width:  64,
-		Height: 64,
+	// Create engine
+	engine := &notacore.Engine{
+		Settings: &notacore.Settings{Vsync: true},
 	}
 
-	// Create a sprite
-	sprite := &notassets.Sprite{
-		Texture: mockTexture,
-		Name:    "player_sprite",
-		X:       0,
-		Y:       0,
+	// Initialize
+	if err := engine.InitPlatform(); err != nil {
+		log.Fatal("Init failed:", err)
+	}
+	defer engine.Shutdown()
+
+	// Create render loop
+	renderLoop := &notacore.RenderLoop{
+		MaxHz: 60,
 	}
 
-	// Test 1: Create entity with sprite
-	entity1 := notassets.NewEntity("ent1", "Player", sprite)
+	// Create window config
+	cfg := notacore.WindowConfig{
+		X:          50,
+		Y:          50,
+		W:          800,
+		H:          600,
+		Title:      "Texture Loading Test",
+		Type:       notacore.Windowed,
+		RenderLoop: renderLoop,
+	}
 
-	fmt.Printf("Entity 1:\n")
-	fmt.Printf("  ID: %s, Name: %s\n", entity1.ID, entity1.Name)
-	fmt.Printf("  Active: %v, Visible: %v\n", entity1.Active, entity1.Visible)
-	fmt.Printf("  Sprite position: (%d, %d)\n", entity1.Sprite.X, entity1.Sprite.Y)
+	// Create window (this creates OpenGL context and calls gl.Init())
+	win, err := engine.CreateWindow2D(cfg)
+	if err != nil {
+		log.Fatal("Window creation failed:", err)
+	}
 
-	// Test position setting
-	entity1.SetPosition(100, 150)
-	x, y := entity1.GetPosition()
-	fmt.Printf("  After SetPosition(100, 150): (%.0f, %.0f)\n", x, y)
+	log.Println("Window created, OpenGL context is ready")
 
-	// Test 2: Create entity with polygon
-	rect := notagl.CreateRectangle(notamath.Po2{X: 0, Y: 0}, 50, 50)
-	rect.SetColor(notashader.Color{R: 1, G: 0, B: 0, A: 1})
+	// NOW we can load textures (we have OpenGL context)
+	currentDir, err := filepath.Abs(".")
+	if err != nil {
+		log.Fatal("Failed to get current directory:", err)
+	}
 
-	entity2 := notassets.NewEntityWithPolygon("ent2", "Red Square", rect)
+	texturePath := filepath.Join(currentDir, "resources", "hahaha.jpg")
+	log.Printf("Attempting to load texture: %s", texturePath)
 
-	fmt.Printf("\nEntity 2:\n")
-	fmt.Printf("  ID: %s, Name: %s\n", entity2.ID, entity2.Name)
-	fmt.Printf("  Has polygon: %v (vertices: %d)\n",
-		len(entity2.Polygon.Vertices) > 0,
-		len(entity2.Polygon.Vertices))
+	// Load texture using window's method
+	texture, err := win.LoadTexture("test_texture", texturePath)
+	if err != nil {
+		log.Printf("Failed to load texture: %v", err)
+		log.Println("Will use colored rectangle instead")
 
-	entity2.SetPosition(200, 300)
-	x2, y2 := entity2.GetPosition()
-	fmt.Printf("  Position: (%.0f, %.0f)\n", x2, y2)
+		// Set up render loop for fallback
+		renderLoop.Runnables = []notacore.Runnable{
+			func() error {
+				// Draw colored rectangle
+				rect := notagl.CreateRectangle(notamath.Po2{X: 0, Y: 0}, 200, 200)
+				rect.SetColor(notashader.Color{R: 1, G: 0, B: 0, A: 1})
+				win.RunTime.Renderer.Submit(rect, 1.0)
+				return nil
+			},
+		}
+	} else {
+		// Success!
+		log.Printf("Success! Texture loaded: %dx%d", texture.Width, texture.Height)
 
-	// Test 3: Toggle visibility
-	entity1.Visible = false
-	entity2.Active = false
+		// Set up render loop with texture
+		renderLoop.Runnables = []notacore.Runnable{
+			func() error {
+				// For now, draw a rectangle where texture should be
+				// We'll need to implement proper textured rendering later
+				rect := notagl.CreateRectangle(
+					notamath.Po2{X: 0, Y: 0},
+					float32(texture.Width),
+					float32(texture.Height),
+				)
+				rect.SetColor(notashader.Color{R: 1, G: 1, B: 1, A: 1})
+				win.RunTime.Renderer.Submit(rect, 1.0)
+				return nil
+			},
+		}
+	}
 
-	fmt.Printf("\nState changes:\n")
-	fmt.Printf("  Entity1 visible: %v\n", entity1.Visible)
-	fmt.Printf("  Entity2 active: %v\n", entity2.Active)
+	// Run engine
+	log.Println("Starting engine...")
+	if err := engine.Run(); err != nil {
+		log.Fatal("Engine run failed:", err)
+	}
 
-	log.Println("Entity test completed successfully")
+	log.Println("Test completed")
 }

@@ -1,98 +1,18 @@
 package notassets
 
 import (
+	"NotaborEngine/notagl"
 	"fmt"
 	"sync"
 )
 
-type TextureManager struct {
-	textures map[string]*Texture
-	mu       sync.RWMutex
-}
-
-func NewTextureManager() *TextureManager {
-	return &TextureManager{
-		textures: make(map[string]*Texture),
-	}
-}
-
-func (tm *TextureManager) Load(name, path string) (*Texture, error) {
-	tm.mu.Lock()
-	defer tm.mu.Unlock()
-
-	if tex, ok := tm.textures[name]; ok {
-		return tex, nil
-	}
-
-	tex, err := LoadTexture(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load texture '%s' from '%s': %w", name, path, err)
-	}
-
-	tm.textures[name] = tex
-	return tex, nil
-}
-
-func (tm *TextureManager) Get(name string) (*Texture, error) {
-	tm.mu.RLock()
-	defer tm.mu.RUnlock()
-
-	tex, ok := tm.textures[name]
-	if !ok {
-		return nil, fmt.Errorf("texture '%s' not found", name)
-	}
-
-	return tex, nil
-}
-
-func (tm *TextureManager) Unload(name string) error {
-	tm.mu.Lock()
-	defer tm.mu.Unlock()
-
-	tex, ok := tm.textures[name]
-	if !ok {
-		return fmt.Errorf("texture '%s' not found", name)
-	}
-
-	tex.Delete()
-	delete(tm.textures, name)
-	return nil
-}
-
-func (tm *TextureManager) Clear() {
-	tm.mu.Lock()
-	defer tm.mu.Unlock()
-
-	for name, tex := range tm.textures {
-		tex.Delete()
-		delete(tm.textures, name)
-	}
-}
-
-func (tm *TextureManager) Count() int {
-	tm.mu.RLock()
-	defer tm.mu.RUnlock()
-	return len(tm.textures)
-}
-
-func (tm *TextureManager) List() []string {
-	tm.mu.RLock()
-	defer tm.mu.RUnlock()
-
-	names := make([]string, 0, len(tm.textures))
-	for name := range tm.textures {
-		names = append(names, name)
-	}
-	return names
-}
-
 type SpriteManager struct {
 	sprites  map[string]*Sprite
-	textures *TextureManager
+	textures *notagl.TextureManager
 	mu       sync.RWMutex
 }
 
-func NewSpriteManager(textureManager *TextureManager) *SpriteManager {
+func NewSpriteManager(textureManager *notagl.TextureManager) *SpriteManager {
 	return &SpriteManager{
 		sprites:  make(map[string]*Sprite),
 		textures: textureManager,
@@ -100,7 +20,7 @@ func NewSpriteManager(textureManager *TextureManager) *SpriteManager {
 }
 
 // Create creates a new sprite from a loaded texture
-func (sm *SpriteManager) Create(name string, texture *Texture) (*Sprite, error) {
+func (sm *SpriteManager) Create(name string, texture *notagl.Texture) (*Sprite, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
