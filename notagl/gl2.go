@@ -11,13 +11,15 @@ import (
 type Vertex2D struct {
 	Pos   notamath.Po2
 	Color notashader.Color
+	UV    notamath.Vec2
 }
 type DrawOrder2D struct {
 	Vertices []Vertex2D
 }
 
 type Renderer2D struct {
-	Orders []DrawOrder2D
+	Orders         []DrawOrder2D
+	CurrentTexture *Texture // Track current texture
 }
 
 func (r *Renderer2D) Submit(p Polygon, alpha float32) {
@@ -63,11 +65,16 @@ func (b *GLBackend2D) Init() {
 	gl.EnableVertexArrayAttrib(b.vao, 0)
 
 	// Color Attribute (Location 1)
-	// Offset is the size of Po2 because Color starts after X, Y
 	colorOffset := uint32(unsafe.Sizeof(notamath.Po2{}))
 	gl.VertexArrayAttribFormat(b.vao, 1, 4, gl.FLOAT, false, colorOffset)
 	gl.VertexArrayAttribBinding(b.vao, 1, 0)
 	gl.EnableVertexArrayAttrib(b.vao, 1)
+
+	// UV Attribute (Location 2)
+	uvOffset := uint32(unsafe.Sizeof(notamath.Po2{}) + unsafe.Sizeof(notashader.Color{}))
+	gl.VertexArrayAttribFormat(b.vao, 2, 2, gl.FLOAT, false, uvOffset)
+	gl.VertexArrayAttribBinding(b.vao, 2, 0)
+	gl.EnableVertexArrayAttrib(b.vao, 2)
 }
 
 func (b *GLBackend2D) BindVao() {
@@ -80,13 +87,19 @@ func (b *GLBackend2D) UploadData(vertices interface{}) {
 }
 
 func (r *Renderer2D) Flush(backend *GLBackend2D) {
+	if len(r.Orders) == 0 {
+		return
+	}
+
 	var flat []Vertex2D
 	for _, order := range r.Orders {
 		flat = append(flat, order.Vertices...)
 	}
+
 	if len(flat) == 0 {
 		return
 	}
+
 	backend.UploadData(flat)
 	backend.BindVao()
 	gl.DrawArrays(gl.TRIANGLES, 0, int32(len(flat)))

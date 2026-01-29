@@ -41,7 +41,7 @@ func (sm *SpriteManager) Create(name string, texture *notagl.Texture) (*Sprite, 
 
 // LoadAndCreate loads a texture and creates a sprite from it
 func (sm *SpriteManager) LoadAndCreate(spriteName, texturePath string) (*Sprite, error) {
-	texture, err := sm.textures.Load(spriteName, texturePath)
+	texture, err := sm.textures.Load(spriteName, texturePath, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load texture: %w", err)
 	}
