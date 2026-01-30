@@ -64,7 +64,7 @@ func main() {
 	if err := win.UseShader("textured"); err != nil {
 		log.Fatal("Failed to use shader:", err)
 	}
-	quad := notagl.CreateTextureQuad(notamath.Po2{X: 0, Y: 0}, 2, 1)
+	quad := notagl.CreateTextureQuad(notamath.Po2{X: 0, Y: 0}, 1, 1)
 
 	renderLoop.Runnables = []notacore.Runnable{
 		func() error {
@@ -76,7 +76,7 @@ func main() {
 
 	logicLoop.Runnables = []notacore.Runnable{
 		func() error {
-			quad.Transform.Snapshot()
+			quad.Transform.RotateBy(0.01)
 			return nil
 		},
 	}

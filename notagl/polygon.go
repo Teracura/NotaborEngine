@@ -44,12 +44,11 @@ func (p *Polygon) AddToOrders(orders *[]DrawOrder2D) {
 		return
 	}
 
-	mat := p.Transform.InterpolatedMatrix(1)
 	verts := make([]Vertex2D, len(p.Vertices))
 
 	for i, v := range p.Vertices {
 		verts[i] = v
-		verts[i].Pos = mat.TransformPo2(v.Pos)
+		verts[i].Pos = p.Transform.TransformPoint(v.Pos)
 
 		// Fallback to polygon color if vertex color is zero
 		if v.Color == (notashader.Color{}) {
