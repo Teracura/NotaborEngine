@@ -39,7 +39,7 @@ func (c *CircleCollider) AABB() AABBCollider {
 }
 
 func (c *CircleCollider) Move(delta notamath.Vec2) {
-	c.Center.Add(delta)
+	c.Center = c.Center.Add(delta)
 }
 
 func (c *CircleCollider) Rotate(delta float32) {
@@ -81,7 +81,7 @@ func (p *PolygonCollider) AABB() AABBCollider {
 
 func (p *PolygonCollider) Move(delta notamath.Vec2) {
 	for _, vert := range p.Vertices {
-		vert.Add(delta)
+		vert = vert.Add(delta)
 	}
 }
 

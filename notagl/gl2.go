@@ -22,7 +22,7 @@ type Renderer2D struct {
 	CurrentTexture *Texture // Track current texture
 }
 
-func (r *Renderer2D) Submit(p Polygon) {
+func (r *Renderer2D) Submit(p *Polygon) {
 	var temp []DrawOrder2D
 
 	p.AddToOrders(&temp)
