@@ -525,3 +525,11 @@ func (im *InputManager) BindInput(input Input, sig *InputSignal) {
 		im.active = make(map[Input]bool)
 	}
 }
+
+func NewInputManager() *InputManager {
+	return &InputManager{
+		inputToSignal:  make(map[Input][]*InputSignal),
+		signalToAction: make(map[*InputSignal][]*Action),
+		active:         make(map[Input]bool),
+	}
+}

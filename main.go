@@ -1,16 +1,12 @@
-// cmd/test_textured/main.go
 package main
 
 import (
-	"fmt"
-	"log"
-	"path/filepath"
-	"time"
-
 	"NotaborEngine/notacore"
 	"NotaborEngine/notagl"
 	"NotaborEngine/notamath"
 	"NotaborEngine/notashader"
+	"NotaborEngine/notassets"
+	"log"
 )
 
 func main() {
@@ -23,10 +19,7 @@ func main() {
 	}
 	defer engine.Shutdown()
 
-	renderLoop := &notacore.RenderLoop{
-		MaxHz: 60,
-	}
-
+	renderLoop := &notacore.RenderLoop{MaxHz: 60}
 	logicLoop := &notacore.FixedHzLoop{Hz: 500}
 
 	cfg := notacore.WindowConfig{
@@ -34,7 +27,7 @@ func main() {
 		Y:          50,
 		W:          800,
 		H:          600,
-		Title:      "Textured Rendering Test",
+		Title:      "Entity Test",
 		Type:       notacore.Windowed,
 		Resizable:  true,
 		RenderLoop: renderLoop,
@@ -43,14 +36,12 @@ func main() {
 
 	win, err := engine.CreateWindow2D(cfg)
 	if err != nil {
-		log.Fatal("Window creation failed:", err)
+		panic(err)
 	}
 
-	currentDir, _ := filepath.Abs(".")
-	texturePath := filepath.Join(currentDir, "resources", "hahaha.jpg")
-	texture, err := win.LoadTexture("test", texturePath)
+	texture, err := win.LoadTexture("test", "resources/hahaha.jpg")
 	if err != nil {
-		log.Fatal("Failed to load texture:", err)
+		panic(err)
 	}
 
 	texturedShader := notashader.Shader{
@@ -66,26 +57,42 @@ func main() {
 	if err := win.UseShader("textured"); err != nil {
 		log.Fatal("Failed to use shader:", err)
 	}
-	quad := notagl.CreateTextureQuad(notamath.Po2{X: 0, Y: 0}, 2, 1)
 
+	entity := notassets.NewEntity("quad", "Test Quad")
+
+	sprite := &notassets.Sprite{
+		Texture: texture,
+		Name:    "quadSprite",
+		X:       0,
+		Y:       0,
+	}
+	entity.SetSprite(sprite)
+
+	whiteQuad := notagl.CreateTextureQuad(notamath.Po2{X: 0, Y: 0}, 1, 1)
+	entity.SetPolygon(&whiteQuad)
+
+	delta := notamath.Vec2{X: 0.001, Y: 0}
+	dir := 1.0
+
+	// draw entity
 	renderLoop.Runnables = []notacore.Runnable{
 		func() error {
 			texture.Bind(0)
-			alpha := logicLoop.Alpha(time.Now())
-			win.RunTime.Renderer.Submit(quad, alpha)
+			entity.Draw(win.RunTime.Renderer)
 			return nil
 		},
 	}
 
+	// rotate and move entity
 	logicLoop.Runnables = []notacore.Runnable{
 		func() error {
-			quad.Transform.Snapshot()
-			quad.Transform.RotateBy(0.01)
+			entity.Rotate(0.01)
+
+			entity.Move(delta.Mul(float32(dir)))
 			return nil
 		},
 	}
 
-	fmt.Println("Running textured rendering test...")
 	if err := engine.Run(); err != nil {
 		log.Fatal("Engine run failed:", err)
 	}

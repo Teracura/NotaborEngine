@@ -39,17 +39,16 @@ func (p *Polygon) Fixate() {
 	}
 }
 
-func (p *Polygon) AddToOrders(orders *[]DrawOrder2D, alpha float32) {
+func (p *Polygon) AddToOrders(orders *[]DrawOrder2D) {
 	if len(p.Vertices) < 3 {
 		return
 	}
 
-	mat := p.Transform.InterpolatedMatrix(alpha)
 	verts := make([]Vertex2D, len(p.Vertices))
 
 	for i, v := range p.Vertices {
 		verts[i] = v
-		verts[i].Pos = mat.TransformPo2(v.Pos)
+		verts[i].Pos = p.Transform.TransformPoint(v.Pos)
 
 		// Fallback to polygon color if vertex color is zero
 		if v.Color == (notashader.Color{}) {

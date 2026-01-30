@@ -22,10 +22,10 @@ type Renderer2D struct {
 	CurrentTexture *Texture // Track current texture
 }
 
-func (r *Renderer2D) Submit(p Polygon, alpha float32) {
+func (r *Renderer2D) Submit(p *Polygon) {
 	var temp []DrawOrder2D
 
-	p.AddToOrders(&temp, alpha)
+	p.AddToOrders(&temp)
 
 	for _, order := range temp {
 		tris := Triangulate2D(order.Vertices)
