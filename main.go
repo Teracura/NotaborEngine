@@ -2,15 +2,13 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"path/filepath"
-	"time"
-
 	"NotaborEngine/notacore"
 	"NotaborEngine/notagl"
 	"NotaborEngine/notamath"
 	"NotaborEngine/notashader"
+	"fmt"
+	"log"
+	"path/filepath"
 )
 
 func main() {
@@ -71,8 +69,7 @@ func main() {
 	renderLoop.Runnables = []notacore.Runnable{
 		func() error {
 			texture.Bind(0)
-			alpha := logicLoop.Alpha(time.Now())
-			win.RunTime.Renderer.Submit(quad, alpha)
+			win.RunTime.Renderer.Submit(quad)
 			return nil
 		},
 	}
@@ -80,7 +77,6 @@ func main() {
 	logicLoop.Runnables = []notacore.Runnable{
 		func() error {
 			quad.Transform.Snapshot()
-			quad.Transform.RotateBy(0.01)
 			return nil
 		},
 	}

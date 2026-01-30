@@ -11,7 +11,7 @@ type Entity struct {
 	Name string
 
 	Sprite  *Sprite
-	Polygon notagl.Polygon
+	Polygon *notagl.Polygon
 
 	Collider notacollision.Collider
 
@@ -19,50 +19,39 @@ type Entity struct {
 	Visible bool
 }
 
-// NewEntity creates a basic entity with a sprite
-func NewEntity(id, name string, sprite *Sprite) *Entity {
+func NewEntity(id, name string) *Entity {
 	return &Entity{
 		ID:      id,
 		Name:    name,
-		Sprite:  sprite,
 		Active:  true,
 		Visible: true,
 	}
 }
 
-// NewEntityWithPolygon creates an entity with a polygon (for shapes without textures)
-func NewEntityWithPolygon(id, name string, polygon notagl.Polygon) *Entity {
-	return &Entity{
-		ID:      id,
-		Name:    name,
-		Polygon: polygon,
-		Active:  true,
-		Visible: true,
-	}
+func (e *Entity) SetPolygon(Polygon *notagl.Polygon) {
+	e.Polygon = Polygon
 }
 
-// SetPosition updates both sprite position and polygon transform
-func (e *Entity) SetPosition(x, y float32) {
+func (e *Entity) SetCollider(Collider notacollision.Collider) {
+	e.Collider = Collider
+}
+
+func (e *Entity) SetSprite(sprite *Sprite) {
+	e.Sprite = sprite
+}
+
+func (e *Entity) Move(delta notamath.Vec2) {
 	if e.Sprite != nil {
-		e.Sprite.X = int32(x)
-		e.Sprite.Y = int32(y)
+		e.Sprite.X += delta.X
+		e.Sprite.Y += delta.Y
 	}
 
 	// Update polygon position if it exists
 	if len(e.Polygon.Vertices) > 0 {
-		e.Polygon.Transform.Position = notamath.Vec2{X: x, Y: y}
-	}
-}
-
-// GetPosition returns the entity's position
-func (e *Entity) GetPosition() (float32, float32) {
-	if e.Sprite != nil {
-		return float32(e.Sprite.X), float32(e.Sprite.Y)
+		e.Polygon.Transform.TranslateBy(delta)
 	}
 
-	if len(e.Polygon.Vertices) > 0 {
-		return e.Polygon.Transform.Position.X, e.Polygon.Transform.Position.Y
+	if e.Collider != nil {
+		e.Collider.Move(delta)
 	}
-
-	return 0, 0
 }

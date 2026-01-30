@@ -39,12 +39,12 @@ func (p *Polygon) Fixate() {
 	}
 }
 
-func (p *Polygon) AddToOrders(orders *[]DrawOrder2D, alpha float32) {
+func (p *Polygon) AddToOrders(orders *[]DrawOrder2D) {
 	if len(p.Vertices) < 3 {
 		return
 	}
 
-	mat := p.Transform.InterpolatedMatrix(alpha)
+	mat := p.Transform.InterpolatedMatrix(1)
 	verts := make([]Vertex2D, len(p.Vertices))
 
 	for i, v := range p.Vertices {
