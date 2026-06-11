@@ -2,742 +2,804 @@ package notaentity
 
 import (
 	"NotaborEngine/notacollision"
+	"NotaborEngine/notacolor"
+	"NotaborEngine/notageometry"
 	"NotaborEngine/notamath"
-	"NotaborEngine/notatomic"
+	"NotaborEngine/notashader"
+	"NotaborEngine/notatexture"
+	"sync"
 
 	"github.com/viterin/vek/vek32"
 )
 
 // CollisionGroup is a set of entities that can collide with each other.
-// Entities that don't share the same collision group will never collide.
 type CollisionGroup struct {
 	Name     string
-	Entities []int
+	Entities []EntityID
 }
 
-// collisionTable is a SuperHashMap (HashMapMap) which contains
-// the collision status of all entity pairs.
+// collisionTable stores collision results between entity pairs.
 type collisionTable struct {
-	pairs map[int]map[int]notamath.Vec2
+	pairs map[EntityID]map[EntityID]notamath.Vec2
 }
 
-// transformData holds all transform arrays in an immutable wrapper
-type transformData struct {
-	pos   []float32
-	rot   []float32
-	scale []float32
-
-	move   []float32
-	rotD   []float32
-	scaleD []float32
+// ComponentStorage holds arrays of components for entities with a specific archetype.
+type ComponentStorage struct {
+	transforms []TransformComponent
+	sprites    []SpriteComponent
+	polygons   []PolygonComponent
+	colliders  []ColliderComponent
+	colors     []ColorComponent
+	shaders    []ShaderComponent
+	materials  []MaterialComponent
 }
 
-// indexMapping holds the ID-to-index mapping
-type indexMapping struct {
-	idToIndex   map[string]int
-	freeIndices []int
-}
-
-// collisionGroupData holds all collision groups
-type collisionGroupData struct {
-	groups map[string]*CollisionGroup
-}
-
-// EntityManager manages entity transforms, batching of transform updates,
-// collision groups, and collision detection results.
-//
-// Transform updates are submitted first and applied in bulk when flushing.
-// Collision results are recalculated every frame after flushing colliders.
+// EntityManager manages entities using an ECS architecture with sparse-set storage.
+// It supports component archetypes for efficient iteration and batched transform updates.
 type EntityManager struct {
-	transforms notatomic.Pointer[transformData]
-	mapping    notatomic.Pointer[indexMapping]
+	mu sync.RWMutex
 
-	dirtyMove  notatomic.Bool
-	dirtyRot   notatomic.Bool
-	dirtyScale notatomic.Bool
+	// Entity management
+	nextID     EntityID
+	nameToID   map[string]EntityID
+	idToName   map[EntityID]string
+	freeIDs    []EntityID
+	entities   []Entity
+	archetypes map[EntityID]Archetype
 
-	entities notatomic.Pointer[[]*Entity]
+	// Component storage - arrays indexed by entity ID
+	transforms []TransformComponent
+	sprites    []*notatexture.Sprite
+	polygons   []*notageometry.Polygon
+	colliders  []notacollision.Collider
+	colors     []notacolor.Color
+	shaders    []*notashader.Shader
+	materials  []*notashader.Material
 
-	collisionGroupsData notatomic.Pointer[collisionGroupData]
-	collisionResults    notatomic.Pointer[collisionTable]
+	// Entity state
+	active  []bool
+	visible []bool
+
+	// Pending transform deltas (for batched updates)
+	pendingMove     []notamath.Vec2
+	pendingRot      []float32
+	pendingScale    []notamath.Vec2
+	hasPendingMove  []bool
+	hasPendingRot   []bool
+	hasPendingScale []bool
+
+	// Collision groups
+	collisionGroups map[string]*CollisionGroup
+	collisionTable  *collisionTable
+
+	// Dirty flags
+	dirtyMove  bool
+	dirtyRot   bool
+	dirtyScale bool
 }
 
-// NewEntityManager initializes the manager.
-// This is called automatically via creating the engine,
-// there is usually no need to call it manually.
+// NewEntityManager creates a new EntityManager with initial capacity.
 func NewEntityManager() *EntityManager {
+	initialCapacity := 64
 
-	em := &EntityManager{}
-
-	initialTransforms := &transformData{
-		pos:    make([]float32, 0, 64),
-		rot:    make([]float32, 0, 32),
-		scale:  make([]float32, 0, 64),
-		move:   make([]float32, 0, 64),
-		rotD:   make([]float32, 0, 32),
-		scaleD: make([]float32, 0, 64),
+	em := &EntityManager{
+		nextID:          1, // Start from 1 to allow 0 as invalid
+		nameToID:        make(map[string]EntityID),
+		idToName:        make(map[EntityID]string),
+		freeIDs:         make([]EntityID, 0),
+		entities:        make([]Entity, initialCapacity),
+		archetypes:      make(map[EntityID]Archetype),
+		transforms:      make([]TransformComponent, initialCapacity),
+		sprites:         make([]*notatexture.Sprite, initialCapacity),
+		polygons:        make([]*notageometry.Polygon, initialCapacity),
+		colliders:       make([]notacollision.Collider, initialCapacity),
+		colors:          make([]notacolor.Color, initialCapacity),
+		shaders:         make([]*notashader.Shader, initialCapacity),
+		materials:       make([]*notashader.Material, initialCapacity),
+		active:          make([]bool, initialCapacity),
+		visible:         make([]bool, initialCapacity),
+		pendingMove:     make([]notamath.Vec2, initialCapacity),
+		pendingRot:      make([]float32, initialCapacity),
+		pendingScale:    make([]notamath.Vec2, initialCapacity),
+		hasPendingMove:  make([]bool, initialCapacity),
+		hasPendingRot:   make([]bool, initialCapacity),
+		hasPendingScale: make([]bool, initialCapacity),
+		collisionGroups: make(map[string]*CollisionGroup),
+		collisionTable: &collisionTable{
+			pairs: make(map[EntityID]map[EntityID]notamath.Vec2),
+		},
 	}
-	em.transforms.Set(initialTransforms)
 
-	initialMapping := &indexMapping{
-		idToIndex:   make(map[string]int),
-		freeIndices: make([]int, 0),
+	// Initialize default values for all potential entities
+	for i := 0; i < initialCapacity; i++ {
+		em.transforms[i] = TransformComponent{
+			Scale: notamath.Vec2{X: 1, Y: 1},
+		}
+		em.colors[i] = notacolor.White
+		em.active[i] = true
+		em.visible[i] = true
+		em.pendingScale[i] = notamath.Vec2{X: 1, Y: 1}
 	}
-	em.mapping.Set(initialMapping)
-
-	initialEntities := make([]*Entity, 32)
-	em.entities.Set(&initialEntities)
-
-	initialGroups := &collisionGroupData{
-		groups: make(map[string]*CollisionGroup),
-	}
-	em.collisionGroupsData.Set(initialGroups)
-
-	initialTable := &collisionTable{
-		pairs: make(map[int]map[int]notamath.Vec2),
-	}
-	em.collisionResults.Set(initialTable)
 
 	return em
 }
 
-// CreateEntity creates a new entity.
-// The given ID will be needed to access the entity from the manager,
-// so choose a memorable ID.
-func (em *EntityManager) CreateEntity(id string) *Entity {
-
-	var index int
-
-	for {
-		oldMapping := em.mapping.Get()
-
-		var newMapping *indexMapping
-		if len(oldMapping.freeIndices) > 0 {
-			// Reuse free index
-			index = oldMapping.freeIndices[len(oldMapping.freeIndices)-1]
-			newMapping = &indexMapping{
-				idToIndex:   copyMap(oldMapping.idToIndex),
-				freeIndices: append([]int(nil), oldMapping.freeIndices[:len(oldMapping.freeIndices)-1]...),
-			}
-		} else {
-			// Allocate new index
-			oldTransforms := em.transforms.Get()
-			index = len(oldTransforms.rot)
-
-			newMapping = &indexMapping{
-				idToIndex:   copyMap(oldMapping.idToIndex),
-				freeIndices: append([]int(nil), oldMapping.freeIndices...),
-			}
-		}
-
-		newMapping.idToIndex[id] = index
-
-		if em.mapping.CompareAndSwap(oldMapping, newMapping) {
-			break
-		}
+// ensureCapacity ensures the internal arrays can hold at least the given entity ID.
+func (em *EntityManager) ensureCapacity(id EntityID) {
+	if int(id) < len(em.transforms) {
+		return
 	}
 
-	for {
-		oldTransforms := em.transforms.Get()
+	newCapacity := max(id*2+1, EntityID(len(em.transforms)*2))
 
-		if index < len(oldTransforms.rot) {
-			// Index already exists, no expansion needed
-			break
-		}
+	// Grow all arrays
+	newTransforms := make([]TransformComponent, newCapacity)
+	copy(newTransforms, em.transforms)
+	em.transforms = newTransforms
 
-		// Need to expand
-		newTransforms := &transformData{
-			pos:    append(append([]float32(nil), oldTransforms.pos...), 0, 0),
-			rot:    append(append([]float32(nil), oldTransforms.rot...), 0),
-			scale:  append(append([]float32(nil), oldTransforms.scale...), 1, 1),
-			move:   append(append([]float32(nil), oldTransforms.move...), 0, 0),
-			rotD:   append(append([]float32(nil), oldTransforms.rotD...), 0),
-			scaleD: append(append([]float32(nil), oldTransforms.scaleD...), 1, 1),
-		}
+	newSprites := make([]*notatexture.Sprite, newCapacity)
+	copy(newSprites, em.sprites)
+	em.sprites = newSprites
 
-		if em.transforms.CompareAndSwap(oldTransforms, newTransforms) {
-			break
+	newPolygons := make([]*notageometry.Polygon, newCapacity)
+	copy(newPolygons, em.polygons)
+	em.polygons = newPolygons
+
+	newColliders := make([]notacollision.Collider, newCapacity)
+	copy(newColliders, em.colliders)
+	em.colliders = newColliders
+
+	newColors := make([]notacolor.Color, newCapacity)
+	copy(newColors, em.colors)
+	em.colors = newColors
+
+	newShaders := make([]*notashader.Shader, newCapacity)
+	copy(newShaders, em.shaders)
+	em.shaders = newShaders
+
+	newMaterials := make([]*notashader.Material, newCapacity)
+	copy(newMaterials, em.materials)
+	em.materials = newMaterials
+
+	newActive := make([]bool, newCapacity)
+	copy(newActive, em.active)
+	em.active = newActive
+
+	newVisible := make([]bool, newCapacity)
+	copy(newVisible, em.visible)
+	em.visible = newVisible
+
+	newPendingMove := make([]notamath.Vec2, newCapacity)
+	copy(newPendingMove, em.pendingMove)
+	em.pendingMove = newPendingMove
+
+	newPendingRot := make([]float32, newCapacity)
+	copy(newPendingRot, em.pendingRot)
+	em.pendingRot = newPendingRot
+
+	newPendingScale := make([]notamath.Vec2, newCapacity)
+	copy(newPendingScale, em.pendingScale)
+	em.pendingScale = newPendingScale
+
+	newHasPendingMove := make([]bool, newCapacity)
+	copy(newHasPendingMove, em.hasPendingMove)
+	em.hasPendingMove = newHasPendingMove
+
+	newHasPendingRot := make([]bool, newCapacity)
+	copy(newHasPendingRot, em.hasPendingRot)
+	em.hasPendingRot = newHasPendingRot
+
+	newHasPendingScale := make([]bool, newCapacity)
+	copy(newHasPendingScale, em.hasPendingScale)
+	em.hasPendingScale = newHasPendingScale
+
+	// Initialize new slots with default values
+	for i := len(em.entities); i < int(newCapacity); i++ {
+		em.transforms[i] = TransformComponent{
+			Scale: notamath.Vec2{X: 1, Y: 1},
 		}
+		em.colors[i] = notacolor.White
+		em.active[i] = true
+		em.visible[i] = true
+		em.pendingScale[i] = notamath.Vec2{X: 1, Y: 1}
 	}
 
-	// Create entity
-	e := newEntity(id, index, em)
-
-	// CAS loop to add entity to entities slice
-	for {
-		oldPtr := em.entities.Get()
-		oldSlice := *oldPtr
-
-		newSlice := oldSlice
-
-		if index >= len(newSlice) {
-			grow := make([]*Entity, index+32)
-			copy(grow, newSlice)
-			newSlice = grow
-		} else {
-			newSlice = append([]*Entity(nil), oldSlice...)
-		}
-
-		newSlice[index] = e
-
-		if em.entities.CompareAndSwap(oldPtr, &newSlice) {
-			break
-		}
-	}
-
-	return e
+	newEntities := make([]Entity, newCapacity)
+	copy(newEntities, em.entities)
+	em.entities = newEntities
 }
 
-// submitMove queues up a movement request to the manager.
-// Actual movement happens when the entity manager is flushed.
-//
-// This batching approach allows for bulk SIMD operations
-// which reduces CPU cost compared to per-entity updates.
-//
-// Submitting is recommended inside a fast loop (≈60Hz+).
-func (em *EntityManager) submitMove(index int, delta notamath.Vec2) {
+// CreateEntity creates a new entity with the given name.
+func (em *EntityManager) CreateEntity(name string) *Entity {
+	em.mu.Lock()
+	defer em.mu.Unlock()
 
-	for {
-		oldTransforms := em.transforms.Get()
+	var id EntityID
 
-		i := index * 2
-		if i+1 >= len(oldTransforms.move) {
-			return
-		}
-
-		newTransforms := &transformData{
-			pos:    oldTransforms.pos,
-			rot:    oldTransforms.rot,
-			scale:  oldTransforms.scale,
-			move:   append([]float32(nil), oldTransforms.move...),
-			rotD:   oldTransforms.rotD,
-			scaleD: oldTransforms.scaleD,
-		}
-
-		newTransforms.move[i] += delta.X
-		newTransforms.move[i+1] += delta.Y
-
-		if em.transforms.CompareAndSwap(oldTransforms, newTransforms) {
-			em.dirtyMove.SetIfFalse(true)
-			break
-		}
+	// Reuse a free ID or allocate a new one
+	if len(em.freeIDs) > 0 {
+		id = em.freeIDs[len(em.freeIDs)-1]
+		em.freeIDs = em.freeIDs[:len(em.freeIDs)-1]
+	} else {
+		id = em.nextID
+		em.nextID++
 	}
+
+	em.ensureCapacity(id)
+
+	// Register name mapping
+	em.nameToID[name] = id
+	em.idToName[id] = name
+
+	// Create entity handle
+	em.entities[id] = Entity{
+		ID:      id,
+		manager: em,
+	}
+
+	// Set default archetype (Transform + Color)
+	em.archetypes[id] = ArchetypeTransform | ArchetypeColor
+
+	// Reset components to defaults
+	em.transforms[id] = TransformComponent{
+		Scale: notamath.Vec2{X: 1, Y: 1},
+	}
+	em.colors[id] = notacolor.White
+	em.active[id] = true
+	em.visible[id] = true
+	em.sprites[id] = nil
+	em.polygons[id] = nil
+	em.colliders[id] = nil
+	em.shaders[id] = nil
+	em.materials[id] = nil
+
+	return &em.entities[id]
 }
 
-// submitRotation queues up a rotation request to the manager.
-// Rotation uses radians, not degrees.
-//
-// Actual rotation happens when the manager is flushed.
-//
-// Submitting is recommended inside a fast loop (120Hz+).
-func (em *EntityManager) submitRotation(index int, rad float32) {
+// SubmitMove queues a movement delta for the entity.
+func (em *EntityManager) SubmitMove(id EntityID, delta notamath.Vec2) {
+	em.mu.Lock()
+	defer em.mu.Unlock()
 
-	for {
-		oldTransforms := em.transforms.Get()
-
-		if index >= len(oldTransforms.rotD) {
-			return
-		}
-
-		newTransforms := &transformData{
-			pos:    oldTransforms.pos,
-			rot:    oldTransforms.rot,
-			scale:  oldTransforms.scale,
-			move:   oldTransforms.move,
-			rotD:   append([]float32(nil), oldTransforms.rotD...),
-			scaleD: oldTransforms.scaleD,
-		}
-
-		newTransforms.rotD[index] += rad
-
-		if em.transforms.CompareAndSwap(oldTransforms, newTransforms) {
-			em.dirtyRot.SetIfFalse(true)
-			break
-		}
+	if int(id) >= len(em.pendingMove) {
+		return
 	}
+
+	em.pendingMove[id] = em.pendingMove[id].Add(delta)
+	em.hasPendingMove[id] = true
+	em.dirtyMove = true
 }
 
-// submitScale queues up a scale request to the manager.
-//
-// Scaling is multiplicative, not additive.
-// Example:
-// scale × 1.1 then × 0.5 results in 0.55.
-//
-// Actual scaling happens when the manager is flushed.
-//
-// Submitting is recommended inside a fast loop (≈60Hz+).
-func (em *EntityManager) submitScale(index int, factor notamath.Vec2) {
+// SubmitRotation queues a rotation delta for the entity (in radians).
+func (em *EntityManager) SubmitRotation(id EntityID, rad float32) {
+	em.mu.Lock()
+	defer em.mu.Unlock()
 
-	for {
-		oldTransforms := em.transforms.Get()
-
-		i := index * 2
-		if i+1 >= len(oldTransforms.scaleD) {
-			return
-		}
-
-		newTransforms := &transformData{
-			pos:    oldTransforms.pos,
-			rot:    oldTransforms.rot,
-			scale:  oldTransforms.scale,
-			move:   oldTransforms.move,
-			rotD:   oldTransforms.rotD,
-			scaleD: append([]float32(nil), oldTransforms.scaleD...),
-		}
-
-		newTransforms.scaleD[i] *= factor.X
-		newTransforms.scaleD[i+1] *= factor.Y
-
-		if em.transforms.CompareAndSwap(oldTransforms, newTransforms) {
-			em.dirtyScale.SetIfFalse(true)
-			break
-		}
+	if int(id) >= len(em.pendingRot) {
+		return
 	}
+
+	em.pendingRot[id] += rad
+	em.hasPendingRot[id] = true
+	em.dirtyRot = true
 }
 
-// Flush updates all entity transforms and synchronizes colliders.
-//
-// Typically called once per frame before running collision detection or drawing.
+// SubmitScale queues a scale factor for the entity (multiplicative).
+func (em *EntityManager) SubmitScale(id EntityID, factor notamath.Vec2) {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+
+	if int(id) >= len(em.pendingScale) {
+		return
+	}
+
+	em.pendingScale[id] = notamath.Vec2{
+		X: em.pendingScale[id].X * factor.X,
+		Y: em.pendingScale[id].Y * factor.Y,
+	}
+	em.hasPendingScale[id] = true
+	em.dirtyScale = true
+}
+
+// Flush applies all pending transform updates and syncs colliders.
 func (em *EntityManager) Flush() {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+
 	em.flushEntities()
 	em.flushColliders()
 }
 
-// flushEntities applies all submitted movement, rotation,
-// and scaling updates to entity transforms.
-//
-// If flushing occurs slower than submission,
-// multiple queued submissions may accumulate.
+// flushEntities applies pending transform deltas.
 func (em *EntityManager) flushEntities() {
-
-	if em.dirtyMove.Get() {
-		for {
-			oldTransforms := em.transforms.Get()
-
-			newPos := append([]float32(nil), oldTransforms.pos...)
-			newMove := make([]float32, len(oldTransforms.move))
-
-			vek32.Add_Inplace(newPos, oldTransforms.move)
-
-			newTransforms := &transformData{
-				pos:    newPos,
-				rot:    oldTransforms.rot,
-				scale:  oldTransforms.scale,
-				move:   newMove,
-				rotD:   oldTransforms.rotD,
-				scaleD: oldTransforms.scaleD,
-			}
-
-			if em.transforms.CompareAndSwap(oldTransforms, newTransforms) {
-				em.dirtyMove.Set(false)
-				break
+	if em.dirtyMove {
+		for i := EntityID(0); i < em.nextID; i++ {
+			if em.hasPendingMove[i] {
+				em.transforms[i].Position = em.transforms[i].Position.Add(em.pendingMove[i])
+				em.pendingMove[i] = notamath.Vec2{}
+				em.hasPendingMove[i] = false
 			}
 		}
+		em.dirtyMove = false
 	}
 
-	if em.dirtyRot.Get() {
-		for {
-			oldTransforms := em.transforms.Get()
-
-			newRot := append([]float32(nil), oldTransforms.rot...)
-			newRotD := make([]float32, len(oldTransforms.rotD))
-
-			vek32.Add_Inplace(newRot, oldTransforms.rotD)
-
-			newTransforms := &transformData{
-				pos:    oldTransforms.pos,
-				rot:    newRot,
-				scale:  oldTransforms.scale,
-				move:   oldTransforms.move,
-				rotD:   newRotD,
-				scaleD: oldTransforms.scaleD,
-			}
-
-			if em.transforms.CompareAndSwap(oldTransforms, newTransforms) {
-				em.dirtyRot.Set(false)
-				break
+	if em.dirtyRot {
+		for i := EntityID(0); i < em.nextID; i++ {
+			if em.hasPendingRot[i] {
+				em.transforms[i].Rotation += em.pendingRot[i]
+				em.pendingRot[i] = 0
+				em.hasPendingRot[i] = false
 			}
 		}
+		em.dirtyRot = false
 	}
 
-	if em.dirtyScale.Get() {
-		for {
-			oldTransforms := em.transforms.Get()
-
-			newScale := append([]float32(nil), oldTransforms.scale...)
-			newScaleD := make([]float32, len(oldTransforms.scaleD))
-			vek32.Ones_Into(newScaleD, len(newScaleD))
-
-			vek32.Mul_Inplace(newScale, oldTransforms.scaleD)
-
-			newTransforms := &transformData{
-				pos:    oldTransforms.pos,
-				rot:    oldTransforms.rot,
-				scale:  newScale,
-				move:   oldTransforms.move,
-				rotD:   oldTransforms.rotD,
-				scaleD: newScaleD,
-			}
-
-			if em.transforms.CompareAndSwap(oldTransforms, newTransforms) {
-				em.dirtyScale.Set(false)
-				break
+	if em.dirtyScale {
+		for i := EntityID(0); i < em.nextID; i++ {
+			if em.hasPendingScale[i] {
+				em.transforms[i].Scale = notamath.Vec2{
+					X: em.transforms[i].Scale.X * em.pendingScale[i].X,
+					Y: em.transforms[i].Scale.Y * em.pendingScale[i].Y,
+				}
+				em.pendingScale[i] = notamath.Vec2{X: 1, Y: 1}
+				em.hasPendingScale[i] = false
 			}
 		}
+		em.dirtyScale = false
 	}
 }
 
-// flushColliders updates every collider's transform so that
-// it matches its owning entity, then clears previous collision results.
+// flushColliders updates all colliders to match their entity's transform.
 func (em *EntityManager) flushColliders() {
-
 	em.syncColliders()
 
-	empty := &collisionTable{
-		pairs: make(map[int]map[int]notamath.Vec2),
-	}
-
-	em.collisionResults.Set(empty)
-}
-
-func (em *EntityManager) GetPosition(id string) notamath.Vec2 {
-	mapping := em.mapping.Get()
-	index, ok := mapping.idToIndex[id]
-	if !ok {
-		return notamath.Vec2{}
-	}
-	return em.getPositionIndex(index)
-}
-
-func (em *EntityManager) GetScale(id string) notamath.Vec2 {
-	mapping := em.mapping.Get()
-	index, ok := mapping.idToIndex[id]
-	if !ok {
-		return notamath.Vec2{}
-	}
-	return em.getScaleIndex(index)
-}
-
-func (em *EntityManager) GetRotation(id string) float32 {
-	mapping := em.mapping.Get()
-	index, ok := mapping.idToIndex[id]
-	if !ok {
-		return 0
-	}
-	return em.getRotationIndex(index)
-}
-
-func (em *EntityManager) getPositionIndex(index int) notamath.Vec2 {
-	transforms := em.transforms.Get()
-	i := index * 2
-
-	if i+1 >= len(transforms.pos) {
-		return notamath.Vec2{}
-	}
-
-	return notamath.Vec2{
-		X: transforms.pos[i],
-		Y: transforms.pos[i+1],
+	// Clear collision table
+	em.collisionTable = &collisionTable{
+		pairs: make(map[EntityID]map[EntityID]notamath.Vec2),
 	}
 }
 
-func (em *EntityManager) getScaleIndex(index int) notamath.Vec2 {
-	transforms := em.transforms.Get()
-	i := index * 2
-
-	if i+1 >= len(transforms.scale) {
-		return notamath.Vec2{}
-	}
-
-	return notamath.Vec2{
-		X: transforms.scale[i],
-		Y: transforms.scale[i+1],
-	}
-}
-
-func (em *EntityManager) getRotationIndex(index int) float32 {
-	transforms := em.transforms.Get()
-	if index >= len(transforms.rot) {
-		return 0
-	}
-	return transforms.rot[index]
-}
-
-// GetEntities returns a slice containing all entities in the manager.
-// Useful for iteration across all entities.
-func (em *EntityManager) GetEntities() []*Entity {
-	return *em.entities.Get()
-}
-
-// GetEntity returns the entity with the given ID.
-// Returns nil if the entity does not exist.
-func (em *EntityManager) GetEntity(id string) *Entity {
-
-	mapping := em.mapping.Get()
-	idx, ok := mapping.idToIndex[id]
-	if !ok {
-		return nil
-	}
-
-	entities := *em.entities.Get()
-
-	if idx >= len(entities) {
-		return nil
-	}
-
-	return entities[idx]
-}
-
-// Remove removes the entity with the given ID from the manager.
-// Its index becomes available for reuse by future entities.
-func (em *EntityManager) Remove(id string) {
-
-	// CAS loop to update mapping
-	var idx int
-	for {
-		oldMapping := em.mapping.Get()
-
-		var ok bool
-		idx, ok = oldMapping.idToIndex[id]
-		if !ok {
-			return
-		}
-
-		newMapping := &indexMapping{
-			idToIndex:   copyMap(oldMapping.idToIndex),
-			freeIndices: append(append([]int(nil), oldMapping.freeIndices...), idx),
-		}
-		delete(newMapping.idToIndex, id)
-
-		if em.mapping.CompareAndSwap(oldMapping, newMapping) {
-			break
-		}
-	}
-
-	for {
-		oldPtr := em.entities.Get()
-		oldSlice := *oldPtr
-
-		newSlice := make([]*Entity, len(oldSlice))
-		copy(newSlice, oldSlice)
-
-		if idx < len(newSlice) {
-			newSlice[idx] = nil
-		}
-
-		if em.entities.CompareAndSwap(oldPtr, &newSlice) {
-			break
-		}
-	}
-
-	for {
-		oldGroupData := em.collisionGroupsData.Get()
-
-		newGroupData := &collisionGroupData{
-			groups: make(map[string]*CollisionGroup),
-		}
-
-		for name, g := range oldGroupData.groups {
-			filter := make([]int, 0, len(g.Entities))
-
-			for _, v := range g.Entities {
-				if v != idx {
-					filter = append(filter, v)
-				}
-			}
-
-			newGroupData.groups[name] = &CollisionGroup{
-				Name:     name,
-				Entities: filter,
-			}
-		}
-
-		if em.collisionGroupsData.CompareAndSwap(oldGroupData, newGroupData) {
-			break
-		}
-	}
-}
-
-// AddToCollisionGroup adds the given entity to a collision group.
-// If the group does not exist, it will be created.
-//
-// Entities within the same group can collide.
-// Entities in different groups will never collide.
-func (em *EntityManager) AddToCollisionGroup(group string, e *Entity) {
-
-	for {
-		oldGroupData := em.collisionGroupsData.Get()
-
-		newGroupData := &collisionGroupData{
-			groups: make(map[string]*CollisionGroup),
-		}
-
-		// Copy all existing groups
-		for name, g := range oldGroupData.groups {
-			newGroupData.groups[name] = &CollisionGroup{
-				Name:     name,
-				Entities: append([]int(nil), g.Entities...),
-			}
-		}
-
-		// Add to target group
-		if existingGroup, ok := newGroupData.groups[group]; ok {
-			existingGroup.Entities = append(existingGroup.Entities, e.index)
-		} else {
-			newGroupData.groups[group] = &CollisionGroup{
-				Name:     group,
-				Entities: []int{e.index},
-			}
-		}
-
-		if em.collisionGroupsData.CompareAndSwap(oldGroupData, newGroupData) {
-			break
-		}
-	}
-}
-
-// SolveGroupCollision computes collisions between all entities
-// inside the specified collision group.
-//
-// Must be called before querying collision results,
-// since flushing clears previous collision data.
-func (em *EntityManager) SolveGroupCollision(id string) {
-
-	groupData := em.collisionGroupsData.Get()
-	g, ok := groupData.groups[id]
-	if !ok || g == nil {
-		return
-	}
-
-	entities := *em.entities.Get()
-
-	// Build new collision table
-	newPairs := make(map[int]map[int]notamath.Vec2)
-
-	for a := 0; a < len(g.Entities); a++ {
-
-		i := g.Entities[a]
-
-		e1 := entities[i]
-		if e1 == nil {
+// syncColliders updates collider transforms.
+func (em *EntityManager) syncColliders() {
+	for i := EntityID(1); i < em.nextID; i++ {
+		if !em.active[i] {
 			continue
 		}
 
-		c1 := e1.Collider.Get()
+		collider := em.colliders[i]
+		if collider == nil {
+			continue
+		}
+
+		t := notamath.Transform2D{}
+		t.SetPosition(em.transforms[i].Position)
+		t.SetRotation(em.transforms[i].Rotation)
+		t.SetScale(em.transforms[i].Scale)
+
+		collider.UpdateFromTransform(&t)
+	}
+}
+
+// GetPosition returns the position of an entity.
+func (em *EntityManager) GetPosition(id string) notamath.Vec2 {
+	em.mu.RLock()
+	defer em.mu.RUnlock()
+
+	entityID, ok := em.nameToID[id]
+	if !ok {
+		return notamath.Vec2{}
+	}
+
+	return em.transforms[entityID].Position
+}
+
+// GetScale returns the scale of an entity.
+func (em *EntityManager) GetScale(id string) notamath.Vec2 {
+	em.mu.RLock()
+	defer em.mu.RUnlock()
+
+	entityID, ok := em.nameToID[id]
+	if !ok {
+		return notamath.Vec2{}
+	}
+
+	return em.transforms[entityID].Scale
+}
+
+// GetRotation returns the rotation of an entity (in radians).
+func (em *EntityManager) GetRotation(id string) float32 {
+	em.mu.RLock()
+	defer em.mu.RUnlock()
+
+	entityID, ok := em.nameToID[id]
+	if !ok {
+		return 0
+	}
+
+	return em.transforms[entityID].Rotation
+}
+
+// getPosition returns the position of an entity by ID.
+func (em *EntityManager) getPosition(id EntityID) notamath.Vec2 {
+	if int(id) >= len(em.transforms) {
+		return notamath.Vec2{}
+	}
+	return em.transforms[id].Position
+}
+
+// getScale returns the scale of an entity by ID.
+func (em *EntityManager) getScale(id EntityID) notamath.Vec2 {
+	if int(id) >= len(em.transforms) {
+		return notamath.Vec2{}
+	}
+	return em.transforms[id].Scale
+}
+
+// getRotation returns the rotation of an entity by ID.
+func (em *EntityManager) getRotation(id EntityID) float32 {
+	if int(id) >= len(em.transforms) {
+		return 0
+	}
+	return em.transforms[id].Rotation
+}
+
+// GetEntities returns all entity handles.
+func (em *EntityManager) GetEntities() []*Entity {
+	em.mu.RLock()
+	defer em.mu.RUnlock()
+
+	result := make([]*Entity, 0, em.nextID)
+	for i := EntityID(1); i < em.nextID; i++ {
+		if em.active[i] {
+			result = append(result, &em.entities[i])
+		}
+	}
+	return result
+}
+
+// GetEntity returns the entity with the given name.
+func (em *EntityManager) GetEntity(name string) *Entity {
+	em.mu.RLock()
+	defer em.mu.RUnlock()
+
+	id, ok := em.nameToID[name]
+	if !ok {
+		return nil
+	}
+
+	if int(id) >= len(em.entities) || !em.active[id] {
+		return nil
+	}
+
+	return &em.entities[id]
+}
+
+// Remove removes an entity by name.
+func (em *EntityManager) Remove(name string) {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+
+	id, ok := em.nameToID[name]
+	if !ok {
+		return
+	}
+
+	em.removeEntity(id)
+}
+
+// removeEntity removes an entity by ID (must hold lock).
+func (em *EntityManager) removeEntity(id EntityID) {
+	delete(em.nameToID, em.idToName[id])
+	delete(em.idToName, id)
+	delete(em.archetypes, id)
+
+	em.active[id] = false
+	em.visible[id] = false
+	em.freeIDs = append(em.freeIDs, id)
+
+	// Remove from collision groups
+	for _, group := range em.collisionGroups {
+		filtered := make([]EntityID, 0, len(group.Entities))
+		for _, eid := range group.Entities {
+			if eid != id {
+				filtered = append(filtered, eid)
+			}
+		}
+		group.Entities = filtered
+	}
+}
+
+// AddToCollisionGroup adds an entity to a collision group.
+func (em *EntityManager) AddToCollisionGroup(group string, e *Entity) {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+
+	if _, ok := em.collisionGroups[group]; !ok {
+		em.collisionGroups[group] = &CollisionGroup{
+			Name:     group,
+			Entities: []EntityID{},
+		}
+	}
+
+	em.collisionGroups[group].Entities = append(em.collisionGroups[group].Entities, e.ID)
+}
+
+// SolveGroupCollision computes collisions between entities in a group.
+func (em *EntityManager) SolveGroupCollision(name string) {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+
+	group, ok := em.collisionGroups[name]
+	if !ok || len(group.Entities) < 2 {
+		return
+	}
+
+	entities := group.Entities
+
+	for a := 0; a < len(entities); a++ {
+		id1 := entities[a]
+		if !em.active[id1] {
+			continue
+		}
+
+		c1 := em.colliders[id1]
 		if c1 == nil {
 			continue
 		}
 
-		for b := a + 1; b < len(g.Entities); b++ {
-
-			j := g.Entities[b]
-
-			e2 := entities[j]
-			if e2 == nil {
+		for b := a + 1; b < len(entities); b++ {
+			id2 := entities[b]
+			if !em.active[id2] {
 				continue
 			}
 
-			c2 := e2.Collider.Get()
+			c2 := em.colliders[id2]
 			if c2 == nil {
 				continue
 			}
 
-			_, mtv := notacollision.Intersects(*c1, *c2)
+			_, mtv := notacollision.Intersects(c1, c2)
 			if mtv != (notamath.Vec2{}) {
-				if newPairs[i] == nil {
-					newPairs[i] = make(map[int]notamath.Vec2)
+				if em.collisionTable.pairs[id1] == nil {
+					em.collisionTable.pairs[id1] = make(map[EntityID]notamath.Vec2)
 				}
-				if newPairs[j] == nil {
-					newPairs[j] = make(map[int]notamath.Vec2)
+				if em.collisionTable.pairs[id2] == nil {
+					em.collisionTable.pairs[id2] = make(map[EntityID]notamath.Vec2)
 				}
-				newPairs[i][j] = mtv
-				newPairs[j][i] = mtv.Neg() // inverse MTV
+				em.collisionTable.pairs[id1][id2] = mtv
+				em.collisionTable.pairs[id2][id1] = mtv.Neg()
 			}
-		}
-	}
-
-	for {
-		oldTable := em.collisionResults.Get()
-
-		mergedPairs := make(map[int]map[int]notamath.Vec2)
-
-		// Copy old pairs
-		for k, v := range oldTable.pairs {
-			mergedPairs[k] = make(map[int]notamath.Vec2)
-			for k2, v2 := range v {
-				mergedPairs[k][k2] = v2
-			}
-		}
-
-		// Add new pairs
-		for k, v := range newPairs {
-			if mergedPairs[k] == nil {
-				mergedPairs[k] = make(map[int]notamath.Vec2)
-			}
-			for k2, v2 := range v {
-				mergedPairs[k][k2] = v2
-			}
-		}
-
-		newTable := &collisionTable{
-			pairs: mergedPairs,
-		}
-
-		if em.collisionResults.CompareAndSwap(oldTable, newTable) {
-			break
 		}
 	}
 }
 
-func (em *EntityManager) syncColliders() {
-
-	entities := *em.entities.Get()
-
-	for _, e := range entities {
-
-		if e == nil {
-			continue
-		}
-
-		e.updateCollider()
-	}
-}
-
-// Collides checks whether two entities are currently colliding.
+// Collides checks if two entities are colliding.
 func (em *EntityManager) Collides(a, b *Entity) bool {
 	collides, _ := em.CollidesMTV(a, b)
 	return collides
 }
 
-// GetMTV returns the minimum translation vector (MTV) between two entities.
-// The MTV is the vector needed to move one entity to the other's position.
-//
-// If the entities are not colliding, the MTV is (0, 0).
+// GetMTV returns the minimum translation vector between two entities.
 func (em *EntityManager) GetMTV(a, b *Entity) notamath.Vec2 {
 	_, mtv := em.CollidesMTV(a, b)
 	return mtv
 }
 
-// CollidesMTV checks whether two entities are currently colliding,
-// and returns the minimum translation vector (MTV) between them.
-//
-// If the entities are not colliding, the MTV is (0, 0).
+// CollidesMTV checks collision and returns the MTV.
 func (em *EntityManager) CollidesMTV(a, b *Entity) (bool, notamath.Vec2) {
-	table := em.collisionResults.Get()
-	row := table.pairs[a.index]
+	em.mu.RLock()
+	defer em.mu.RUnlock()
+
+	row := em.collisionTable.pairs[a.ID]
 	if row == nil {
 		return false, notamath.Vec2{}
 	}
 
-	mtv, ok := row[b.index]
+	mtv, ok := row[b.ID]
 	return ok, mtv
 }
 
-// copyMap creates a copy of the given map
-func copyMap(m map[string]int) map[string]int {
-	result := make(map[string]int, len(m))
-	for k, v := range m {
-		result[k] = v
-	}
-	return result
+// Component setters
+
+// SetSprite sets the sprite component for an entity.
+func (em *EntityManager) SetSprite(id EntityID, sprite *notatexture.Sprite) {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+
+	em.ensureCapacity(id)
+	em.sprites[id] = sprite
 }
+
+// SetPolygon sets the polygon component for an entity.
+func (em *EntityManager) SetPolygon(id EntityID, polygon *notageometry.Polygon) {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+
+	em.ensureCapacity(id)
+	em.polygons[id] = polygon
+}
+
+// SetCollider sets the collider component for an entity.
+func (em *EntityManager) SetCollider(id EntityID, collider notacollision.Collider) {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+
+	em.ensureCapacity(id)
+	em.colliders[id] = collider
+}
+
+// SetColor sets the color component for an entity.
+func (em *EntityManager) SetColor(id EntityID, color notacolor.Color) {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+
+	em.ensureCapacity(id)
+	em.colors[id] = color
+}
+
+// SetShader sets the shader component for an entity.
+func (em *EntityManager) SetShader(id EntityID, shader *notashader.Shader) {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+
+	em.ensureCapacity(id)
+	em.shaders[id] = shader
+}
+
+// SetMaterial sets the material component for an entity.
+func (em *EntityManager) SetMaterial(id EntityID, material *notashader.Material) {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+
+	em.ensureCapacity(id)
+	em.materials[id] = material
+}
+
+// Component getters
+
+// GetSprite returns the sprite component for an entity.
+func (em *EntityManager) GetSprite(id EntityID) *notatexture.Sprite {
+	em.mu.RLock()
+	defer em.mu.RUnlock()
+
+	if int(id) >= len(em.sprites) {
+		return nil
+	}
+	return em.sprites[id]
+}
+
+// GetPolygon returns the polygon component for an entity.
+func (em *EntityManager) GetPolygon(id EntityID) *notageometry.Polygon {
+	em.mu.RLock()
+	defer em.mu.RUnlock()
+
+	if int(id) >= len(em.polygons) {
+		return nil
+	}
+	return em.polygons[id]
+}
+
+// GetColor returns the color component for an entity.
+func (em *EntityManager) GetColor(id EntityID) notacolor.Color {
+	em.mu.RLock()
+	defer em.mu.RUnlock()
+
+	if int(id) >= len(em.colors) {
+		return notacolor.White
+	}
+	return em.colors[id]
+}
+
+// GetShader returns the shader component for an entity.
+func (em *EntityManager) GetShader(id EntityID) *notashader.Shader {
+	em.mu.RLock()
+	defer em.mu.RUnlock()
+
+	if int(id) >= len(em.shaders) {
+		return nil
+	}
+	return em.shaders[id]
+}
+
+// GetMaterial returns the material component for an entity.
+func (em *EntityManager) GetMaterial(id EntityID) *notashader.Material {
+	em.mu.RLock()
+	defer em.mu.RUnlock()
+
+	if int(id) >= len(em.materials) {
+		return nil
+	}
+	return em.materials[id]
+}
+
+// IsActive returns whether an entity is active.
+func (em *EntityManager) IsActive(id EntityID) bool {
+	em.mu.RLock()
+	defer em.mu.RUnlock()
+
+	if int(id) >= len(em.active) {
+		return false
+	}
+	return em.active[id]
+}
+
+// SetActive sets the active state of an entity.
+func (em *EntityManager) SetActive(id EntityID, active bool) {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+
+	if int(id) < len(em.active) {
+		em.active[id] = active
+	}
+}
+
+// IsVisible returns whether an entity is visible.
+func (em *EntityManager) IsVisible(id EntityID) bool {
+	em.mu.RLock()
+	defer em.mu.RUnlock()
+
+	if int(id) >= len(em.visible) {
+		return false
+	}
+	return em.visible[id]
+}
+
+// SetVisible sets the visibility state of an entity.
+func (em *EntityManager) SetVisible(id EntityID, visible bool) {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+
+	if int(id) < len(em.visible) {
+		em.visible[id] = visible
+	}
+}
+
+// GetEntityName returns the name of an entity by ID.
+func (em *EntityManager) GetEntityName(id EntityID) string {
+	em.mu.RLock()
+	defer em.mu.RUnlock()
+
+	return em.idToName[id]
+}
+
+// SetPosition sets the position of an entity directly.
+func (em *EntityManager) SetPosition(id EntityID, pos notamath.Vec2) {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+
+	em.ensureCapacity(id)
+	em.transforms[id].Position = pos
+}
+
+// SetRotation sets the rotation of an entity directly.
+func (em *EntityManager) SetRotation(id EntityID, rot float32) {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+
+	em.ensureCapacity(id)
+	em.transforms[id].Rotation = rot
+}
+
+// SetScaleValue sets the scale of an entity directly.
+func (em *EntityManager) SetScaleValue(id EntityID, scale notamath.Vec2) {
+	em.mu.Lock()
+	defer em.mu.Unlock()
+
+	em.ensureCapacity(id)
+	em.transforms[id].Scale = scale
+}
+
+// ForEachWithArchetype iterates over all entities that have the specified archetype.
+func (em *EntityManager) ForEachWithArchetype(archetype Archetype, fn func(EntityID)) {
+	em.mu.RLock()
+	defer em.mu.RUnlock()
+
+	for id, a := range em.archetypes {
+		if (a&archetype) == archetype && em.active[id] {
+			fn(id)
+		}
+	}
+}
+
+// Unused but required for interface compatibility
+var _ = vek32.Add_Inplace
