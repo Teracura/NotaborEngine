@@ -346,9 +346,8 @@ var sdlGamepadAxisMap = map[notasdl.GamepadAxis]StateInput{
 }
 
 type InputManager struct {
-	ctx         *InputContext
-	signals     sync.Map     // string -> *InputSignal
-	signalsInit sync.RWMutex // Only used during initial registration
+	ctx     *InputContext
+	signals sync.Map // string -> *InputSignal
 
 	Loop     *notatask.Loop
 	platform notasdl.Platform
@@ -357,9 +356,10 @@ type InputManager struct {
 
 // newInputManager creates a new input manager
 func newInputManager() *InputManager {
-	return &InputManager{
-		ctx: NewInputContext(),
-	}
+	im := &InputManager{}
+	im.ctx = NewInputContext()
+	im.ctx.signalRegistry = &im.signals
+	return im
 }
 
 func (im *InputManager) inputTick() {
@@ -367,7 +367,6 @@ func (im *InputManager) inputTick() {
 		return
 	}
 
-	im.platform.PollEvents()
 	im.ctx.beginFrame()
 }
 
@@ -428,5 +427,21 @@ func (im *InputManager) HandleEvent(event notasdl.Event) {
 		if input, ok := sdlGamepadButtonMap[event.GamepadBtn]; ok {
 			im.ctx.recordKeyUp(input)
 		}
+
+	case notasdl.EventGamepadAxisMotion:
+		if input, ok := sdlGamepadAxisMap[event.GamepadAxis]; ok {
+			if abs32(event.AxisValue) >= 0.5 {
+				im.ctx.recordKeyDown(input)
+			} else {
+				im.ctx.recordKeyUp(input)
+			}
+		}
 	}
+}
+
+func abs32(v float32) float32 {
+	if v < 0 {
+		return -v
+	}
+	return v
 }

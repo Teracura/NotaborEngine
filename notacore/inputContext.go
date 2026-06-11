@@ -2,18 +2,27 @@ package notacore
 
 import (
 	"NotaborEngine/notatomic"
+	"sync"
 )
 
 type InputContext struct {
-	// Current hardware state (what is physically pressed right now)
-	currHardware *notatomic.Pointer[map[StateInput]bool]
+	mu sync.Mutex
+
+	currHardware  map[StateInput]bool
+	keyDownEvents map[StateInput]bool
+	keyUpEvents   map[StateInput]bool
+	frame         uint64
 
 	// Snapshot taken at the beginning of the frame (safe for readers)
 	snapshot *notatomic.Pointer[inputSnapshot]
+
+	signalRegistry *sync.Map
 }
 
 // inputSnapshot holds a consistent view of input state for one frame
 type inputSnapshot struct {
+	Frame uint64
+
 	PrevHardware map[StateInput]bool
 	CurrHardware map[StateInput]bool
 
@@ -22,11 +31,11 @@ type inputSnapshot struct {
 }
 
 func NewInputContext() *InputContext {
-	emptyMap := make(map[StateInput]bool)
-
 	ctx := &InputContext{
-		currHardware: notatomic.NewPointer(&emptyMap),
-		snapshot:     notatomic.NewPointer(&inputSnapshot{}),
+		currHardware:  make(map[StateInput]bool),
+		keyDownEvents: make(map[StateInput]bool),
+		keyUpEvents:   make(map[StateInput]bool),
+		snapshot:      notatomic.NewPointer(&inputSnapshot{}),
 	}
 
 	// Initialize snapshot
@@ -46,41 +55,74 @@ func NewInputContext() *InputContext {
 func (c *InputContext) beginFrame() {
 	oldSnap := c.snapshot.Get()
 
-	newSnap := &inputSnapshot{
-		PrevHardware:  make(map[StateInput]bool),
-		CurrHardware:  make(map[StateInput]bool),
-		KeyDownEvents: make(map[StateInput]bool),
-		KeyUpEvents:   make(map[StateInput]bool),
-	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	curr := *c.currHardware.Get()
-	for k, v := range curr {
-		newSnap.PrevHardware[k] = v
-		newSnap.CurrHardware[k] = v
+	newSnap := &inputSnapshot{
+		Frame:         c.frame + 1,
+		PrevHardware:  make(map[StateInput]bool),
+		CurrHardware:  make(map[StateInput]bool, len(c.currHardware)),
+		KeyDownEvents: make(map[StateInput]bool, len(c.keyDownEvents)),
+		KeyUpEvents:   make(map[StateInput]bool, len(c.keyUpEvents)),
 	}
 
 	if oldSnap != nil {
-		for k := range oldSnap.KeyDownEvents {
-			newSnap.KeyDownEvents[k] = true
-		}
-		for k := range oldSnap.KeyUpEvents {
-			newSnap.KeyUpEvents[k] = true
+		for k, v := range oldSnap.CurrHardware {
+			newSnap.PrevHardware[k] = v
 		}
 	}
 
+	for k, v := range c.currHardware {
+		newSnap.CurrHardware[k] = v
+	}
+	for k := range c.keyDownEvents {
+		newSnap.KeyDownEvents[k] = true
+	}
+	for k := range c.keyUpEvents {
+		newSnap.KeyUpEvents[k] = true
+	}
+
+	c.keyDownEvents = make(map[StateInput]bool)
+	c.keyUpEvents = make(map[StateInput]bool)
+	c.frame = newSnap.Frame
 	c.snapshot.Set(newSnap)
 }
 
 // recordKeyDown is called when a hardware key down event occurs
 func (c *InputContext) recordKeyDown(input StateInput) {
-	m := *c.currHardware.Get()
-	m[input] = true
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if !c.currHardware[input] {
+		c.keyDownEvents[input] = true
+	}
+	c.currHardware[input] = true
 }
 
 // recordKeyUp is called when a hardware key up event occurs
 func (c *InputContext) recordKeyUp(input StateInput) {
-	m := *c.currHardware.Get()
-	m[input] = false
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.currHardware[input] {
+		c.keyUpEvents[input] = true
+	}
+	c.currHardware[input] = false
+}
+
+func (c *InputContext) currentFrame() uint64 {
+	snap := c.snapshot.Get()
+	if snap == nil {
+		return 0
+	}
+	return snap.Frame
+}
+
+func (c *InputContext) registerSignal(name string, signal *InputSignal) {
+	if c == nil || c.signalRegistry == nil || name == "" || signal == nil {
+		return
+	}
+	c.signalRegistry.Store(name, signal)
 }
 
 // isKeyHeldThisFrame returns true if the key is physically pressed this frame

@@ -148,6 +148,9 @@ func (b *VulkanBackend) UploadVertexData(cmdBuf *sdl.GPUCommandBuffer, vertices 
 	if len(vertices) == 0 {
 		return nil
 	}
+	if len(vertices) > b.MaxVertices {
+		return fmt.Errorf("vertex upload exceeds buffer capacity: %d > %d", len(vertices), b.MaxVertices)
+	}
 
 	b.CurrentVertexCount = len(vertices)
 	vertexSize := uint32(len(vertices) * int(unsafe.Sizeof(Vertex2D{})))
@@ -184,6 +187,30 @@ func (b *VulkanBackend) AcquireSwapchainTexture(cmdBuf *sdl.GPUCommandBuffer, wi
 		return nil, fmt.Errorf("swapchain texture handle is nil")
 	}
 	return swapchainTex.Texture, nil
+}
+
+func (b *VulkanBackend) Clear(cmdBuf *sdl.GPUCommandBuffer, window *sdl.Window) error {
+	swapchainTexture, err := b.AcquireSwapchainTexture(cmdBuf, window)
+	if err != nil {
+		_ = cmdBuf.Cancel()
+		return err
+	}
+
+	colorTarget := sdl.GPUColorTargetInfo{
+		Texture:    swapchainTexture,
+		ClearColor: sdl.FColor{R: 0.0, G: 0.0, B: 0.0, A: 1.0},
+		LoadOp:     sdl.GPU_LOADOP_CLEAR,
+		StoreOp:    sdl.GPU_STOREOP_STORE,
+	}
+
+	renderPass := cmdBuf.BeginRenderPass([]sdl.GPUColorTargetInfo{colorTarget}, nil)
+	if renderPass == nil {
+		_ = cmdBuf.Cancel()
+		return fmt.Errorf("failed to begin clear render pass")
+	}
+	renderPass.End()
+
+	return cmdBuf.Submit()
 }
 
 // Shutdown cleans up Vulkan resources
@@ -327,7 +354,7 @@ func (r *VulkanRenderer) Flush(backend *VulkanBackend, cmdBuf *sdl.GPUCommandBuf
 	r.currentTexture = nil
 
 	if len(orders) == 0 {
-		return cmdBuf.Cancel()
+		return backend.Clear(cmdBuf, window)
 	}
 
 	backend.vertexData = backend.vertexData[:0]
@@ -343,6 +370,10 @@ func (r *VulkanRenderer) Flush(backend *VulkanBackend, cmdBuf *sdl.GPUCommandBuf
 		}
 		if shader == nil {
 			shader = r.DefaultShader
+		}
+		if shader == nil {
+			_ = cmdBuf.Cancel()
+			return fmt.Errorf("draw order has no shader and renderer has no default shader")
 		}
 
 		canBatch := current != nil &&

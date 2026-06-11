@@ -1,11 +1,14 @@
 package notashader
 
 import (
+	"NotaborEngine/notacolor"
+	"NotaborEngine/notamath"
 	"encoding/binary"
 	"fmt"
 	"math"
 	"os"
 	"sync"
+	"unsafe"
 
 	"github.com/Zyko0/go-sdl3/sdl"
 	"github.com/Zyko0/go-sdl3/shadercross"
@@ -31,13 +34,43 @@ const (
 	MaterialBinding   = 0
 )
 
-const vertex2DPitch = 52
+type vertex2DLayout struct {
+	Pos        notamath.Po2
+	Color      notacolor.Color
+	UV         notamath.Vec2
+	LocalPos   notamath.Po2
+	CircleMask notamath.Vec2
+	UseCircle  float32
+}
+
+var (
+	vertex2DPitch            = uint32(unsafe.Sizeof(vertex2DLayout{}))
+	vertex2DPosOffset        = uint32(unsafe.Offsetof(vertex2DLayout{}.Pos))
+	vertex2DColorOffset      = uint32(unsafe.Offsetof(vertex2DLayout{}.Color))
+	vertex2DUVOffset         = uint32(unsafe.Offsetof(vertex2DLayout{}.UV))
+	vertex2DLocalPosOffset   = uint32(unsafe.Offsetof(vertex2DLayout{}.LocalPos))
+	vertex2DCircleMaskOffset = uint32(unsafe.Offsetof(vertex2DLayout{}.CircleMask))
+	vertex2DUseCircleOffset  = uint32(unsafe.Offsetof(vertex2DLayout{}.UseCircle))
+)
 
 type MaterialUniforms struct {
 	UseTexture   uint32
 	UseCircle    uint32
 	CircleRadius float32
 	CircleEdge   float32
+}
+
+func compileGraphicsShader(device *sdl.GPUDevice, bytecode []byte, stage shadercross.ShaderStage, resources *shadercross.GraphicsShaderResourceInfo) (*sdl.GPUShader, error) {
+	return shadercross.CompileGraphicsShaderFromSPIRV(
+		device,
+		&shadercross.SPIRVInfo{
+			Bytecode:    bytecode,
+			Entrypoint:  "main",
+			ShaderStage: stage,
+		},
+		resources,
+		0,
+	)
 }
 
 // ================= SHADER =================
@@ -99,25 +132,22 @@ func (s *Shader) Reload() error {
 		return fmt.Errorf("fragment compile failed: %w", err)
 	}
 
-	// Create GPU shaders from SPIR-V
-	vertShader, err := s.Device.CreateGPUShader(&sdl.GPUShaderCreateInfo{
-		Code:        vertSpv,
-		Format:      sdl.GPU_SHADERFORMAT_SPIRV,
-		Stage:       sdl.GPU_SHADERSTAGE_VERTEX,
-		Entrypoint:  "main",
-		NumSamplers: 0,
-	})
+	vertShader, err := compileGraphicsShader(
+		s.Device,
+		vertSpv,
+		shadercross.SHADERSTAGE_VERTEX,
+		&shadercross.GraphicsShaderResourceInfo{},
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create vertex shader: %w", err)
 	}
 
-	fragShader, err := s.Device.CreateGPUShader(&sdl.GPUShaderCreateInfo{
-		Code:        fragSpv,
-		Format:      sdl.GPU_SHADERFORMAT_SPIRV,
-		Stage:       sdl.GPU_SHADERSTAGE_FRAGMENT,
-		Entrypoint:  "main",
-		NumSamplers: 1,
-	})
+	fragShader, err := compileGraphicsShader(
+		s.Device,
+		fragSpv,
+		shadercross.SHADERSTAGE_FRAGMENT,
+		&shadercross.GraphicsShaderResourceInfo{NumSamplers: 1},
+	)
 	if err != nil {
 		s.Device.ReleaseShader(vertShader)
 		return fmt.Errorf("failed to create fragment shader: %w", err)
@@ -130,12 +160,12 @@ func (s *Shader) Reload() error {
 
 		VertexInputState: sdl.GPUVertexInputState{
 			VertexAttributes: []sdl.GPUVertexAttribute{
-				{Location: 0, BufferSlot: 0, Format: sdl.GPU_VERTEXELEMENTFORMAT_FLOAT2, Offset: 0},
-				{Location: 1, BufferSlot: 0, Format: sdl.GPU_VERTEXELEMENTFORMAT_FLOAT4, Offset: 8},
-				{Location: 2, BufferSlot: 0, Format: sdl.GPU_VERTEXELEMENTFORMAT_FLOAT2, Offset: 24},
-				{Location: 3, BufferSlot: 0, Format: sdl.GPU_VERTEXELEMENTFORMAT_FLOAT2, Offset: 32},
-				{Location: 4, BufferSlot: 0, Format: sdl.GPU_VERTEXELEMENTFORMAT_FLOAT2, Offset: 40},
-				{Location: 5, BufferSlot: 0, Format: sdl.GPU_VERTEXELEMENTFORMAT_FLOAT, Offset: 48},
+				{Location: 0, BufferSlot: 0, Format: sdl.GPU_VERTEXELEMENTFORMAT_FLOAT2, Offset: vertex2DPosOffset},
+				{Location: 1, BufferSlot: 0, Format: sdl.GPU_VERTEXELEMENTFORMAT_FLOAT4, Offset: vertex2DColorOffset},
+				{Location: 2, BufferSlot: 0, Format: sdl.GPU_VERTEXELEMENTFORMAT_FLOAT2, Offset: vertex2DUVOffset},
+				{Location: 3, BufferSlot: 0, Format: sdl.GPU_VERTEXELEMENTFORMAT_FLOAT2, Offset: vertex2DLocalPosOffset},
+				{Location: 4, BufferSlot: 0, Format: sdl.GPU_VERTEXELEMENTFORMAT_FLOAT2, Offset: vertex2DCircleMaskOffset},
+				{Location: 5, BufferSlot: 0, Format: sdl.GPU_VERTEXELEMENTFORMAT_FLOAT, Offset: vertex2DUseCircleOffset},
 			},
 			VertexBufferDescriptions: []sdl.GPUVertexBufferDescription{
 				{Slot: 0, Pitch: vertex2DPitch, InputRate: sdl.GPU_VERTEXINPUTRATE_VERTEX},

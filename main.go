@@ -7,8 +7,11 @@ import (
 	"NotaborEngine/notamath"
 	"NotaborEngine/notasdl"
 	"NotaborEngine/notatask"
+	"NotaborEngine/notatomic"
+	"NotaborEngine/notaui"
 	"fmt"
 	"log"
+	"sync/atomic"
 	"time"
 )
 
@@ -66,6 +69,48 @@ func main() {
 		WithColor(notacolor.White)
 
 	moveStep := float32(0.05)
+	var moveSpeed notatomic.Float32
+	moveSpeed.Set(moveStep)
+
+	ui, err := notaui.New(engine, win)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var clicks atomic.Int32
+	var colorChoice atomic.Int32
+	playerName := "nota"
+	hudEnabled := true
+
+	ui.Panel("hud-panel").Rect(14, 14, 314, 220)
+	ui.Text("hud-title", "NOTA UI").At(24, 24).Scale(2).Color(notacolor.Cyan)
+	ui.TextFunc("hud-info", func() string {
+		state := "OFF"
+		if hudEnabled {
+			state = "ON"
+		}
+		return fmt.Sprintf("PLAYER %s  CLICKS %d  HUD %s", playerName, clicks.Load(), state)
+	}).At(24, 48)
+	ui.Button("hud-click", "CLICK").Rect(24, 72, 92, 28).OnClick(func() {
+		clicks.Add(1)
+	})
+	ui.Input("hud-name", &playerName).Rect(124, 72, 184, 28).Placeholder("name")
+	ui.Slider("hud-speed", &moveStep, 0.01, 0.12).Rect(24, 114, 284, 34).Label("SPEED").OnChange(func(v float32) {
+		moveSpeed.Set(v)
+	})
+	ui.Checkbox("hud-toggle", "HUD ENABLED", &hudEnabled).Rect(24, 154, 160, 24)
+
+	grid := ui.Grid("hud-color-grid", notaui.R(24, 188, 284, 34), 3, 1).Gap(8)
+	grid.Button("hud-white", "WHITE", 0, 0).OnClick(func() {
+		colorChoice.Store(0)
+	})
+	grid.Button("hud-red", "RED", 1, 0).OnClick(func() {
+		colorChoice.Store(1)
+	})
+	grid.Button("hud-cyan", "CYAN", 2, 0).OnClick(func() {
+		colorChoice.Store(2)
+	})
+
 	inputCtx := engine.Input.GetContext()
 
 	moveLeft := notacore.Input("moveLeft", notacore.KeyA, inputCtx)
@@ -96,31 +141,47 @@ func main() {
 			moveY -= 1
 		}
 
+		if ui.HasKeyboardFocus() {
+			moveX = 0
+			moveY = 0
+		}
+
 		if moveX != 0 || moveY != 0 {
-			movement := notamath.Vec2{X: moveX, Y: moveY}.Mul(moveStep)
+			movement := notamath.Vec2{X: moveX, Y: moveY}.Mul(moveSpeed.Get())
 			entity.Move(movement)
 		}
 
-		if winLeft.Held() {
-			win.Move(-8, 0) // Move window left
-		}
-		if winRight.Held() {
-			win.Move(8, 0) // Move window right
+		switch colorChoice.Load() {
+		case 1:
+			entity.WithColor(notacolor.Red)
+		case 2:
+			entity.WithColor(notacolor.Cyan)
+		default:
+			entity.WithColor(notacolor.White)
 		}
 
-		if leftClickSignal.Pressed() {
-			fmt.Println("left click")
+		if winLeft.Held() {
+			win.Move(-8, 0)
 		}
-		if combo.Pressed() {
-			fmt.Println("combo pressed")
+		if winRight.Held() {
+			win.Move(8, 0)
 		}
+
+		// Debug input testing removed - use proper logging if needed
+		_ = leftClickSignal.Pressed()
+		_ = combo.Pressed()
 
 		em.Flush()
 		alpha := drawingLoop.Alpha(time.Now())
 		err := win.Draw(alpha, nil, entity)
 		if err != nil {
-			panic(err)
+			log.Printf("Draw error: %v", err)
+			// Skip UI drawing if render fails
+			return
 		}
+
+		// UI DRAWING NOW IN SAME FRAME
+		ui.Draw()
 	})
 
 	if err := engine.Run(); err != nil {

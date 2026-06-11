@@ -27,8 +27,6 @@ type Entity struct {
 	Material notatomic.Pointer[notashader.Material]
 
 	Color notatomic.Pointer[notacolor.Color]
-
-	lastSubmittedFrame notatomic.UInt64
 }
 
 type Visual struct {
@@ -204,18 +202,6 @@ func (e *Entity) Draw(renderer *notarender.Renderer, alpha float32) error {
 func (e *Entity) DrawWithView(renderer *notarender.Renderer, view notamath.Mat3, alpha float32) error {
 	if !e.Visible.Get() || !e.Active.Get() {
 		return nil
-	}
-
-	frame := renderer.FrameID.Get()
-
-	for {
-		last := e.lastSubmittedFrame.Get()
-		if last == frame {
-			return nil
-		}
-		if e.lastSubmittedFrame.CompareAndSwap(last, frame) {
-			break
-		}
 	}
 
 	pos := e.manager.getPositionIndex(e.index)

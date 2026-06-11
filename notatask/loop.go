@@ -3,7 +3,6 @@ package notatask
 import (
 	"NotaborEngine/notatomic"
 	"errors"
-	"fmt"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -291,9 +290,9 @@ func (l *Loop) compactTasks() {
 		if !t.done && t.canceled.Load() == 0 && t.err == nil {
 			l.tasks[kept] = t
 			kept++
-		} else if !errors.Is(t.err, ErrDone) {
-			fmt.Println("Task error:", t.err)
 		}
+		// Task errors other than ErrDone are silently ignored
+		// Consider adding proper logging if needed
 		t.done = false
 		t.err = nil
 	}

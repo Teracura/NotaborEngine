@@ -94,3 +94,13 @@ func (m *Manager) Unload(name string) error {
 	delete(m.shaders, name)
 	return nil
 }
+
+func (m *Manager) Clear() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for name, shader := range m.shaders {
+		shader.Delete()
+		delete(m.shaders, name)
+	}
+}
