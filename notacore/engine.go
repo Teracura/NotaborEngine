@@ -46,6 +46,7 @@ func (e *Engine) Run() error {
 	for e.running && !e.AllWindowsClosed() {
 		e.Platform.PollEvents()
 		now := time.Now()
+		var sleepFor time.Duration
 
 		for _, win := range e.Windows {
 			if win.ShouldClose {
@@ -54,18 +55,24 @@ func (e *Engine) Run() error {
 
 			rt := win.Runtime
 			elapsed := now.Sub(rt.LastFrame)
-			if elapsed < rt.TargetDt {
-				time.Sleep(rt.TargetDt - elapsed)
+			if rt.TargetDt > 0 && elapsed < rt.TargetDt {
+				wait := rt.TargetDt - elapsed
+				if sleepFor == 0 || wait < sleepFor {
+					sleepFor = wait
+				}
 				continue
 			}
 
 			win.MakeCurrent()
 			win.RenderFrame()
 		}
+
+		if sleepFor > 0 {
+			time.Sleep(sleepFor)
+		}
 	}
 
 	if e.inputManager.running.Get() {
-		e.running = false
 		e.inputManager.Loop.Stop()
 	}
 	// Stop logic loops

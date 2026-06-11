@@ -32,6 +32,10 @@ type BaseNode struct {
 	name         string
 	dependencies []InputNode
 	mu           sync.RWMutex
+	evalMu       sync.Mutex
+	cachedFrame  uint64
+	cachedState  InputState
+	cacheValid   bool
 }
 
 func NewBaseNode(name string) BaseNode {
@@ -57,6 +61,23 @@ func (b *BaseNode) GetName() string {
 	return b.name
 }
 
+func (b *BaseNode) evaluateCached(ctx *InputContext, compute func() InputState) InputState {
+	frame := ctx.currentFrame()
+
+	b.evalMu.Lock()
+	defer b.evalMu.Unlock()
+
+	if b.cacheValid && b.cachedFrame == frame {
+		return b.cachedState
+	}
+
+	state := compute()
+	b.cachedFrame = frame
+	b.cachedState = state
+	b.cacheValid = true
+	return state
+}
+
 // RawInputNode reads directly from hardware input
 type RawInputNode struct {
 	BaseNode
@@ -71,26 +92,31 @@ func NewRawInputNode(name string, input StateInput) *RawInputNode {
 }
 
 func (n *RawInputNode) Evaluate(ctx *InputContext) InputState {
-	// Use events directly for immediate feedback, fall back to state transitions
-	if ctx.isKeyDownThisFrame(n.input) {
-		return StatePressed
-	}
+	return n.evaluateCached(ctx, func() InputState {
+		// Use events directly for immediate feedback, fall back to state transitions
+		if ctx.isKeyDownThisFrame(n.input) {
+			return StatePressed
+		}
 
-	if ctx.isKeyUpThisFrame(n.input) {
-		return StateReleased
-	}
+		if ctx.isKeyUpThisFrame(n.input) {
+			return StateReleased
+		}
 
-	// For states between events, use hardware state tracking
-	isHeldNow := ctx.isKeyHeldThisFrame(n.input)
-	wasHeldBefore := ctx.wasKeyHeldLastFrame(n.input)
+		// For states between events, use hardware state tracking
+		isHeldNow := ctx.isKeyHeldThisFrame(n.input)
+		wasHeldBefore := ctx.wasKeyHeldLastFrame(n.input)
 
-	switch {
-	case isHeldNow && wasHeldBefore:
-		return StateHeld
-	case !isHeldNow && !wasHeldBefore:
-		return StateIdle
-	}
-	return StateIdle
+		switch {
+		case isHeldNow && !wasHeldBefore:
+			return StatePressed
+		case isHeldNow && wasHeldBefore:
+			return StateHeld
+		case !isHeldNow && wasHeldBefore:
+			return StateReleased
+		default:
+			return StateIdle
+		}
+	})
 }
 
 // CompositeNode combines multiple child nodes with a logical operator
@@ -118,22 +144,24 @@ func NewCompositeNode(name string, op CompositeOp, children ...InputNode) *Compo
 }
 
 func (n *CompositeNode) Evaluate(ctx *InputContext) InputState {
-	if len(n.children) == 0 {
-		return StateIdle
-	}
+	return n.evaluateCached(ctx, func() InputState {
+		if len(n.children) == 0 {
+			return StateIdle
+		}
 
-	switch n.op {
-	case OpAnd:
-		return n.evaluateAnd(ctx)
-	case OpOr:
-		return n.evaluateOr(ctx)
-	case OpNot:
-		return n.evaluateNot(ctx)
-	case OpXor:
-		return n.evaluateXor(ctx)
-	default:
-		return StateIdle
-	}
+		switch n.op {
+		case OpAnd:
+			return n.evaluateAnd(ctx)
+		case OpOr:
+			return n.evaluateOr(ctx)
+		case OpNot:
+			return n.evaluateNot(ctx)
+		case OpXor:
+			return n.evaluateXor(ctx)
+		default:
+			return StateIdle
+		}
+	})
 }
 
 func (n *CompositeNode) evaluateAnd(ctx *InputContext) InputState {
@@ -251,35 +279,37 @@ func NewSequenceNode(name string, frameTimeout int, inputs ...InputNode) *Sequen
 }
 
 func (n *SequenceNode) Evaluate(ctx *InputContext) InputState {
-	if len(n.sequence) == 0 {
-		return StateIdle
-	}
+	return n.evaluateCached(ctx, func() InputState {
+		if len(n.sequence) == 0 {
+			return StateIdle
+		}
 
-	n.frameCount++
+		n.frameCount++
 
-	// Reset on timeout
-	if n.frameCount > n.frameTimeout {
-		n.currentIndex = 0
-		n.frameCount = 0
-	}
-
-	currentNode := n.sequence[n.currentIndex]
-	state := currentNode.Evaluate(ctx)
-
-	if state == StatePressed {
-		n.currentIndex++
-		n.frameCount = 0
-
-		// Sequence complete
-		if n.currentIndex >= len(n.sequence) {
+		// Reset on timeout
+		if n.frameTimeout > 0 && n.frameCount > n.frameTimeout {
 			n.currentIndex = 0
-			return StatePressed
+			n.frameCount = 0
+		}
+
+		currentNode := n.sequence[n.currentIndex]
+		state := currentNode.Evaluate(ctx)
+
+		if state == StatePressed {
+			n.currentIndex++
+			n.frameCount = 0
+
+			// Sequence complete
+			if n.currentIndex >= len(n.sequence) {
+				n.currentIndex = 0
+				return StatePressed
+			}
+
+			return StateIdle
 		}
 
 		return StateIdle
-	}
-
-	return StateIdle
+	})
 }
 
 // CooldownNode prevents a signal from repeating within a cooldown period
@@ -304,29 +334,31 @@ func NewCooldownNode(name string, cooldownFrames int, child InputNode) *Cooldown
 }
 
 func (n *CooldownNode) Evaluate(ctx *InputContext) InputState {
-	n.frameCount++
+	return n.evaluateCached(ctx, func() InputState {
+		n.frameCount++
 
-	if n.frameCount > n.cooldownTime {
-		n.frameCount = 0
-	}
+		if n.frameCount > n.cooldownTime {
+			n.frameCount = 0
+		}
 
-	state := n.child.Evaluate(ctx)
+		state := n.child.Evaluate(ctx)
 
-	// If cooldown active, suppress input
-	if n.frameCount < n.cooldownTime {
+		// If cooldown active, suppress input
+		if n.frameCount < n.cooldownTime {
+			return StateIdle
+		}
+
+		// Detect press and start cooldown
+		if state == StatePressed && !n.lastPressed {
+			n.lastPressed = true
+			n.frameCount = 1 // Start cooldown countdown
+			return StatePressed
+		}
+
+		n.lastPressed = state == StateHeld || state == StatePressed
+
 		return StateIdle
-	}
-
-	// Detect press and start cooldown
-	if state == StatePressed && !n.lastPressed {
-		n.lastPressed = true
-		n.frameCount = 1 // Start cooldown countdown
-		return StatePressed
-	}
-
-	n.lastPressed = state == StateHeld || state == StatePressed
-
-	return StateIdle
+	})
 }
 
 // HoldDurationNode fires when held for a minimum duration
@@ -351,29 +383,31 @@ func NewHoldDurationNode(name string, holdFrames int, child InputNode) *HoldDura
 }
 
 func (n *HoldDurationNode) Evaluate(ctx *InputContext) InputState {
-	state := n.child.Evaluate(ctx)
+	return n.evaluateCached(ctx, func() InputState {
+		state := n.child.Evaluate(ctx)
 
-	switch state {
-	case StatePressed:
-		n.frameCount = 1
-		return StateIdle
-	case StateHeld:
-		n.frameCount++
-		if n.frameCount >= n.holdFrames && !n.wasHeld {
-			n.wasHeld = true
-			return StatePressed // Fire once when threshold reached
+		switch state {
+		case StatePressed:
+			n.frameCount = 1
+			return StateIdle
+		case StateHeld:
+			n.frameCount++
+			if n.frameCount >= n.holdFrames && !n.wasHeld {
+				n.wasHeld = true
+				return StatePressed // Fire once when threshold reached
+			}
+			if n.frameCount >= n.holdFrames {
+				return StateHeld
+			}
+			return StateIdle
+		case StateReleased:
+			n.frameCount = 0
+			n.wasHeld = false
+			return StateReleased
+		default:
+			n.frameCount = 0
+			n.wasHeld = false
+			return StateIdle
 		}
-		if n.frameCount >= n.holdFrames {
-			return StateHeld
-		}
-		return StateIdle
-	case StateReleased:
-		n.frameCount = 0
-		n.wasHeld = false
-		return StateReleased
-	default:
-		n.frameCount = 0
-		n.wasHeld = false
-		return StateIdle
-	}
+	})
 }

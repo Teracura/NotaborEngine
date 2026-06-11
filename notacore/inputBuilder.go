@@ -1,5 +1,7 @@
 package notacore
 
+import "strconv"
+
 type InputBuilder struct {
 	node InputNode
 }
@@ -63,7 +65,11 @@ func (b *InputBuilder) Sequence(name string, timeoutFrames int, inputs ...InputN
 
 // Build returns the final InputSignal
 func (b *InputBuilder) Build(ctx *InputContext) *InputSignal {
-	return NewInputSignal(b.node, ctx)
+	signal := NewInputSignal(b.node, ctx)
+	if ctx != nil {
+		ctx.registerSignal(b.node.GetName(), signal)
+	}
+	return signal
 }
 
 // Node returns the underlying node for advanced usage
@@ -79,7 +85,7 @@ func Input(name string, key StateInput, ctx *InputContext) *InputSignal {
 // InputCombo creates a signal from multiple keys held together
 func InputCombo(name string, ctx *InputContext, keys ...StateInput) *InputSignal {
 	if len(keys) == 0 {
-		return NewInputSignal(NewRawInputNode(name, 0), ctx)
+		return NewInputBuilder(name, 0).Build(ctx)
 	}
 	if len(keys) == 1 {
 		return Input(name, keys[0], ctx)
@@ -87,8 +93,8 @@ func InputCombo(name string, ctx *InputContext, keys ...StateInput) *InputSignal
 
 	nodes := make([]InputNode, len(keys))
 	for i, k := range keys {
-		nodes[i] = NewRawInputNode(name+"_"+string(rune(i)), k)
+		nodes[i] = NewRawInputNode(name+"_"+strconv.Itoa(i), k)
 	}
 
-	return NewInputSignal(NewCompositeNode(name, OpAnd, nodes...), ctx)
+	return (&InputBuilder{node: NewCompositeNode(name, OpAnd, nodes...)}).Build(ctx)
 }

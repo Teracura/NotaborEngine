@@ -6,6 +6,7 @@ import (
 	"NotaborEngine/notashader"
 	"NotaborEngine/notatask"
 	"NotaborEngine/notatexture"
+	"fmt"
 	"sync"
 	"time"
 
@@ -35,8 +36,6 @@ type WindowRuntime struct {
 	LastFrame time.Time
 	TargetDt  time.Duration
 
-	RenderLoop *notatask.Loop
-
 	Backend    *notarender.Backend
 	Renderer   *notarender.Renderer
 	TextureMgr *notatexture.TextureManager
@@ -64,6 +63,10 @@ type Window struct {
 	pendingY           int
 	pendingMoveX       int
 	pendingMoveY       int
+
+	sizeMu sync.RWMutex
+	width  int
+	height int
 }
 
 func (w *Window) RenderFrame() {
@@ -71,7 +74,10 @@ func (w *Window) RenderFrame() {
 	dt := float32(now.Sub(w.Runtime.LastFrame).Seconds())
 	w.Runtime.LastFrame = now
 
-	if !w.canRender() {
+	// Get safe dimensions
+	width, height := w.GetSize()
+
+	if !w.canRender() || width <= 0 || height <= 0 {
 		w.Runtime.Renderer.Clear()
 		return
 	}
@@ -84,25 +90,24 @@ func (w *Window) RenderFrame() {
 
 	w.Runtime.Renderer.FrameID.Inc()
 
-	// Acquire command buffer for this frame
 	cmdBuf, err := w.Runtime.Backend.BeginFrame()
 	if err != nil {
 		return
 	}
 
-	// Flush render queue to GPU (this also submits the command buffer)
 	if err := w.Runtime.Renderer.Flush(w.Runtime.Backend, cmdBuf, w.Handle); err != nil {
 		return
 	}
 }
 
 func (w *Window) canRender() bool {
+	width, height := w.GetSize()
 	return !w.ShouldClose &&
 		!w.Hidden &&
 		!w.Minimized &&
 		!w.Occluded &&
-		w.Config.W > 0 &&
-		w.Config.H > 0
+		width > 0 &&
+		height > 0
 }
 
 func (w *Window) MakeCurrent() {
@@ -115,8 +120,54 @@ func (w *Window) GetConfig() *WindowConfig {
 }
 
 func (w *Window) SetVSync(enabled bool) {
-	// SDL3 GPU handles vertical sync automatically
-	// This is managed at the presentation level
+	if w == nil || w.Handle == nil || w.Runtime == nil || w.Runtime.Backend == nil || w.Runtime.Backend.Device == nil {
+		return
+	}
+
+	mode := sdl.GPU_PRESENTMODE_VSYNC
+	if !enabled {
+		mode = sdl.GPU_PRESENTMODE_IMMEDIATE
+		if !w.Runtime.Backend.Device.WindowSupportsPresentMode(w.Handle, mode) {
+			mode = sdl.GPU_PRESENTMODE_MAILBOX
+		}
+		if !w.Runtime.Backend.Device.WindowSupportsPresentMode(w.Handle, mode) {
+			mode = sdl.GPU_PRESENTMODE_VSYNC
+		}
+	}
+
+	_ = w.Runtime.Backend.Device.SetSwapchainParameters(w.Handle, sdl.GPU_SWAPCHAINCOMPOSITION_SDR, mode)
+}
+
+func (w *Window) Destroy() {
+	if w == nil {
+		return
+	}
+
+	w.ShouldClose = true
+
+	if w.Runtime != nil {
+		if w.Runtime.SpriteMgr != nil {
+			w.Runtime.SpriteMgr.Clear()
+		}
+		if w.Runtime.TextureMgr != nil {
+			w.Runtime.TextureMgr.Clear()
+		}
+		if w.Runtime.ShaderMgr != nil {
+			w.Runtime.ShaderMgr.Clear()
+		}
+		if w.Runtime.Backend != nil {
+			if w.Runtime.Backend.Device != nil && w.Handle != nil {
+				w.Runtime.Backend.Device.ReleaseWindow(w.Handle)
+			}
+			w.Runtime.Backend.Shutdown()
+			w.Runtime.Backend = nil
+		}
+	}
+
+	if w.Handle != nil {
+		w.Handle.Destroy()
+		w.Handle = nil
+	}
 }
 
 // Draw queues entities for rendering using SDL-backed renderer.
@@ -183,7 +234,10 @@ func (w *Window) setPositionNow(x, y int) error {
 		return nil
 	}
 
-	bounds := w.getCurrentDisplayBounds()
+	bounds, err := w.getCurrentDisplayBounds()
+	if err != nil {
+		return err
+	}
 
 	minX := -w.Config.W + 50
 	minY := -w.Config.H + 50
@@ -232,17 +286,17 @@ func (w *Window) Move(dx, dy int) {
 
 // Helper to get current display bounds
 
-func (w *Window) getCurrentDisplayBounds() *sdl.Rect {
+func (w *Window) getCurrentDisplayBounds() (*sdl.Rect, error) {
 	if w.Handle == nil {
-		panic("Window handle is nil, initialize window before calling getCurrentDisplayBounds")
+		return nil, fmt.Errorf("window handle is nil, initialize window before calling getCurrentDisplayBounds")
 	}
 
 	bounds, err := sdl.GetDisplayForWindow(w.Handle).Bounds()
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to get display bounds: %w", err)
 	}
 
-	return bounds
+	return bounds, nil
 }
 
 // GetPosition returns current window position
@@ -262,4 +316,26 @@ func (w *Window) GetPosition() (x, y int) {
 	}
 
 	return x + w.pendingMoveX, y + w.pendingMoveY
+}
+
+// GetSize returns the current window size safely
+func (w *Window) GetSize() (width, height int) {
+	w.sizeMu.RLock()
+	defer w.sizeMu.RUnlock()
+
+	if w.width > 0 && w.height > 0 {
+		return w.width, w.height
+	}
+	return w.Config.W, w.Config.H
+}
+
+// SetSize updates the window size safely
+func (w *Window) SetSize(width, height int) {
+	w.sizeMu.Lock()
+	defer w.sizeMu.Unlock()
+
+	w.width = width
+	w.height = height
+	w.Config.W = width
+	w.Config.H = height
 }

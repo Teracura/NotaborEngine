@@ -7,7 +7,6 @@ import (
 
 	"NotaborEngine/notarender"
 	"NotaborEngine/notashader"
-	"NotaborEngine/notatask"
 	"NotaborEngine/notatexture"
 
 	"github.com/Zyko0/go-sdl3/bin/binsdl"
@@ -40,8 +39,8 @@ func (wm *WindowManager) Init() error {
 }
 
 func (wm *WindowManager) Shutdown() {
-	for _, window := range wm.windows {
-		window.ShouldClose = true
+	for id := range wm.windows {
+		wm.closeWindow(id)
 	}
 	for _, gamepad := range wm.gamepads {
 		if gamepad != nil {
@@ -59,6 +58,9 @@ func (wm *WindowManager) CreateWindow(cfg *WindowConfig) (*Window, error) {
 	}
 	if cfg.TargetFPS < 0 {
 		return nil, errors.New("invalid target FPS")
+	}
+	if cfg.TargetFPS == 0 {
+		cfg.TargetFPS = 60
 	}
 	flags := sdl.WindowFlags(0)
 
@@ -119,7 +121,19 @@ func (wm *WindowManager) CreateWindow(cfg *WindowConfig) (*Window, error) {
 		),
 	}
 	rt.SpriteMgr = notatexture.NewSpriteManager(rt.TextureMgr)
-	rt.RenderLoop = notatask.CreateLoop(cfg.TargetFPS)
+
+	defaultShader, err := rt.ShaderMgr.Load(
+		"default-basic",
+		notashader.DefaultVertexShaderPath,
+		notashader.DefaultFragmentShaderPath,
+	)
+	if err != nil {
+		backend.Device.ReleaseWindow(win)
+		win.Destroy()
+		backend.Shutdown()
+		return nil, fmt.Errorf("failed to load default shader: %w", err)
+	}
+	rt.Renderer.DefaultShader = defaultShader
 
 	defaultCam := NewCamera2D()
 	rt.Cameras = []*Camera2D{defaultCam}
@@ -130,14 +144,13 @@ func (wm *WindowManager) CreateWindow(cfg *WindowConfig) (*Window, error) {
 		Config:        cfg,
 		Runtime:       &rt,
 		DefaultCamera: defaultCam,
+		width:         cfg.W,
+		height:        cfg.H,
 	}
-
 	if wm.windows == nil {
 		wm.windows = make(map[WindowID]*Window)
 	}
 	wm.windows[w.ID] = w
-
-	rt.RenderLoop.Start()
 
 	return w, nil
 }
@@ -151,9 +164,7 @@ func (wm *WindowManager) PollEvents() {
 		case sdl.EVENT_WINDOW_CLOSE_REQUESTED:
 			id, _ := ev.Window().ID()
 
-			if w, ok := wm.windows[WindowID(id)]; ok {
-				w.ShouldClose = true
-			}
+			wm.closeWindow(WindowID(id))
 			wm.emit(Event{Type: EventWindowClose, WindowID: uint32(id)})
 
 		case sdl.EVENT_WINDOW_HIDDEN:
@@ -204,14 +215,17 @@ func (wm *WindowManager) PollEvents() {
 		case sdl.EVENT_WINDOW_RESIZED:
 			id, _ := ev.Window().ID()
 			if w, ok := wm.windows[WindowID(id)]; ok {
-				w.Config.W = int(ev.WindowEvent().Data1)
-				w.Config.H = int(ev.WindowEvent().Data2)
-				// SDL3 GPU handles viewport updates automatically on resize
+				newWidth := int(ev.WindowEvent().Data1)
+				newHeight := int(ev.WindowEvent().Data2)
+
+				if newWidth > 0 && newHeight > 0 {
+					w.SetSize(newWidth, newHeight)
+				}
 			}
 
 		case sdl.EVENT_QUIT:
-			for _, w := range wm.windows {
-				w.ShouldClose = true
+			for id := range wm.windows {
+				wm.closeWindow(id)
 			}
 			wm.emit(Event{Type: EventQuit})
 
@@ -300,6 +314,16 @@ func (wm *WindowManager) emit(event Event) {
 	for _, handler := range wm.eventHandlers {
 		handler(event)
 	}
+}
+
+func (wm *WindowManager) closeWindow(id WindowID) {
+	w, ok := wm.windows[id]
+	if !ok {
+		return
+	}
+
+	w.Destroy()
+	delete(wm.windows, id)
 }
 
 type Platform interface {
