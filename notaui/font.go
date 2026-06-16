@@ -1,6 +1,8 @@
 package notaui
 
-import "NotaborEngine/notacolor"
+import (
+	"NotaborEngine/internal/notacolor"
+)
 
 func (ui *UI) drawGlyph(r rune, x, y, scale float32, color notacolor.Color) {
 	if r == ' ' {

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"NotaborEngine/notatask"
+	notatask2 "NotaborEngine/internal/notatask"
 	"NotaborEngine/notatomic"
 	"fmt"
 	"runtime"
@@ -26,13 +26,13 @@ func TestLoopFrequency(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			loop := notatask.CreateLoop(tt.targetHz)
+			loop := notatask2.CreateLoop(tt.targetHz)
 			loop.Start()
 
 			// Add tasks
 			var counter atomic.Int64
 			for i := 0; i < tt.taskCount; i++ {
-				loop.Add(notatask.CreateTask(func() {
+				loop.Add(notatask2.CreateTask(func() {
 					counter.Add(1)
 				}))
 			}
@@ -55,22 +55,22 @@ func TestLoopFrequency(t *testing.T) {
 
 // TestTaskLifecycle verifies tasks are added, executed, and removed
 func TestTaskLifecycle(t *testing.T) {
-	loop := notatask.CreateLoop(1000)
+	loop := notatask2.CreateLoop(1000)
 	loop.Start()
 
 	var executed atomic.Int32
 	var finished atomic.Int32
 
 	// Task that runs once
-	task := notatask.CreateTask(func() {
+	task := notatask2.CreateTask(func() {
 		executed.Add(1)
-	}, notatask.RunOnce())
+	}, notatask2.RunOnce())
 	loop.Add(task)
 
 	// Task that runs and self-terminates
-	loop.Add(notatask.CreateTask(func() {
+	loop.Add(notatask2.CreateTask(func() {
 		finished.Add(1)
-	}, notatask.RepeatTimes(5)))
+	}, notatask2.RepeatTimes(5)))
 
 	time.Sleep(100 * time.Millisecond)
 	loop.Stop()
@@ -85,7 +85,7 @@ func TestTaskLifecycle(t *testing.T) {
 
 // TestAddRemoveDuringRun tests concurrent add/remove while loop is running
 func TestAddRemoveDuringRun(t *testing.T) {
-	loop := notatask.CreateLoop(1000)
+	loop := notatask2.CreateLoop(1000)
 	loop.Start()
 
 	var added atomic.Int32
@@ -94,7 +94,7 @@ func TestAddRemoveDuringRun(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		for i := 0; i < 100; i++ {
-			task := notatask.CreateTask(func() {}, notatask.RepeatTimes(10))
+			task := notatask2.CreateTask(func() {}, notatask2.RepeatTimes(10))
 			loop.Add(task)
 			added.Add(1)
 			time.Sleep(time.Microsecond)
@@ -111,14 +111,14 @@ func TestAddRemoveDuringRun(t *testing.T) {
 
 // TestWorkerDistribution verifies tasks are distributed across workers
 func TestWorkerDistribution(t *testing.T) {
-	loop := notatask.CreateLoop(100)
+	loop := notatask2.CreateLoop(100)
 
 	// Track which worker executed each task
 	workerHits := make([]atomic.Int32, runtime.NumCPU())
 
 	for i := 0; i < runtime.NumCPU()*4; i++ {
 		idx := i % len(workerHits)
-		loop.Add(notatask.CreateTask(func() {
+		loop.Add(notatask2.CreateTask(func() {
 			workerHits[idx].Add(1)
 		}))
 	}
@@ -144,14 +144,14 @@ func TestStressTest(t *testing.T) {
 		t.Skip("Skipping stress test in short mode")
 	}
 
-	loop := notatask.CreateLoop(0) // 0 means run as fast as possible
-	loop.Hz.Set(0)                 // Will default to 60 in runLoop, so we override
+	loop := notatask2.CreateLoop(0) // 0 means run as fast as possible
+	loop.Hz.Set(0)                  // Will default to 60 in runLoop, so we override
 
 	var counter atomic.Int64
 
 	// Add many tiny tasks
 	for i := 0; i < 100; i++ {
-		loop.Add(notatask.CreateTask(func() {
+		loop.Add(notatask2.CreateTask(func() {
 			counter.Add(1)
 		}))
 	}
@@ -166,11 +166,11 @@ func TestStressTest(t *testing.T) {
 
 // TestAllocationCount verifies no allocations in hot path after warmup
 func TestAllocationCount(t *testing.T) {
-	loop := notatask.CreateLoop(1000)
+	loop := notatask2.CreateLoop(1000)
 
 	// Add tasks
 	for i := 0; i < 10; i++ {
-		loop.Add(notatask.CreateTask(func() {}))
+		loop.Add(notatask2.CreateTask(func() {}))
 	}
 
 	loop.Start()
@@ -202,9 +202,9 @@ func TestAllocationCount(t *testing.T) {
 
 // ExampleLoop demonstrates basic usage
 func ExampleLoop() {
-	loop := notatask.CreateLoop(60)
+	loop := notatask2.CreateLoop(60)
 	var counter notatomic.Int32
-	loop.Add(notatask.CreateTask(func() {
+	loop.Add(notatask2.CreateTask(func() {
 		counter.Inc()
 	}))
 

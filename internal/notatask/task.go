@@ -23,15 +23,15 @@ type Task struct {
 	canceled      atomic.Uint32
 	delayConsumed bool
 	done          bool
-	err           error // set by run when task is done or errored
+	err           error // set by run when Task is done or errored
 }
 
-// TaskOption configures a Task at creation time.
-type TaskOption func(*Task)
+// taskOption configures a Task at creation time.
+type taskOption func(*Task)
 
 // CreateTask creates a task.
-// All configuration is done through TaskOption functions.
-func CreateTask(fn func(), opts ...TaskOption) *Task {
+// All configuration is done through taskOption functions.
+func CreateTask(fn func(), opts ...taskOption) *Task {
 	t := &Task{
 		fn:      fn,
 		lastRun: time.Now().UnixNano(),
@@ -155,49 +155,49 @@ func (t *Task) FinishAfter(d time.Duration) *Task {
 }
 
 // RunOnce executes the task only once.
-func RunOnce() TaskOption {
+func RunOnce() taskOption {
 	return func(t *Task) {
 		t.maxRuns = 1
 	}
 }
 
 // WithDelay sets an initial delay before the first execution.
-func WithDelay(d time.Duration) TaskOption {
+func WithDelay(d time.Duration) taskOption {
 	return func(t *Task) {
 		t.timeDelay = int64(d)
 	}
 }
 
 // RepeatEvery sets a periodic interval between executions.
-func RepeatEvery(d time.Duration) TaskOption {
+func RepeatEvery(d time.Duration) taskOption {
 	return func(t *Task) {
 		t.interval = int64(d)
 	}
 }
 
 // StartAfterTicks delays execution by a number of ticks.
-func StartAfterTicks(count uint32) TaskOption {
+func StartAfterTicks(count uint32) taskOption {
 	return func(t *Task) {
 		t.tickDelay = count
 	}
 }
 
 // RepeatTimes sets the task to execute a fixed number of times.
-func RepeatTimes(n uint32) TaskOption {
+func RepeatTimes(n uint32) taskOption {
 	return func(t *Task) {
 		t.maxRuns = n
 	}
 }
 
 // StopWhen sets a conditional function to end the task.
-func StopWhen(cond func() bool) TaskOption {
+func StopWhen(cond func() bool) taskOption {
 	return func(t *Task) {
 		t.cond = cond
 	}
 }
 
 // FinishAfter sets a hard finish time.
-func FinishAfter(d time.Duration) TaskOption {
+func FinishAfter(d time.Duration) taskOption {
 	return func(t *Task) {
 		t.finishAt = time.Now().Add(d).UnixNano()
 	}

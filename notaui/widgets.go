@@ -1,9 +1,8 @@
 package notaui
 
 import (
+	"NotaborEngine/internal/notacolor"
 	"fmt"
-
-	"NotaborEngine/notacolor"
 )
 
 type Text struct {

@@ -1,7 +1,7 @@
 package notaui
 
 import (
-	"NotaborEngine/notacolor"
+	"NotaborEngine/internal/notacolor"
 )
 
 type Rect struct {
