@@ -1,10 +1,10 @@
 package notasdl
 
 import (
-	"NotaborEngine/notaentity"
-	"NotaborEngine/notageometry"
-	"NotaborEngine/notashader"
-	"NotaborEngine/notatexture"
+	"NotaborEngine/internal/notaentity"
+	"NotaborEngine/internal/notageometry"
+	"NotaborEngine/internal/notashader"
+	"NotaborEngine/internal/notatexture"
 	"fmt"
 	"path/filepath"
 

@@ -2,7 +2,7 @@ package main
 
 import (
 	notatask2 "NotaborEngine/internal/notatask"
-	"NotaborEngine/notatomic"
+	"NotaborEngine/internal/notatomic"
 	"fmt"
 	"runtime"
 	"sync/atomic"

@@ -1,7 +1,7 @@
 package notacollision
 
 import (
-	"NotaborEngine/notamath"
+	"NotaborEngine/internal/notamath"
 	"math"
 )
 

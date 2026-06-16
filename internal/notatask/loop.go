@@ -1,7 +1,7 @@
 package notatask
 
 import (
-	"NotaborEngine/notatomic"
+	notatomic2 "NotaborEngine/internal/notatomic"
 	"errors"
 	"runtime"
 	"sync"
@@ -22,10 +22,10 @@ type workerJob struct {
 }
 
 type Loop struct {
-	Hz           notatomic.Float32
-	lastTickNano notatomic.Int64
-	delta        notatomic.Int64
-	tickCount    notatomic.UInt64
+	Hz           notatomic2.Float32
+	lastTickNano notatomic2.Int64
+	delta        notatomic2.Int64
+	tickCount    notatomic2.UInt64
 
 	tasks []*Task
 

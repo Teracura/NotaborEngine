@@ -2,7 +2,7 @@ package notashader
 
 import (
 	"NotaborEngine/internal/notacolor"
-	"NotaborEngine/notamath"
+	"NotaborEngine/internal/notamath"
 	"encoding/binary"
 	"fmt"
 	"math"

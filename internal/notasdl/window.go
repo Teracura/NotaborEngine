@@ -1,11 +1,11 @@
 package notasdl
 
 import (
+	"NotaborEngine/internal/notaentity"
+	"NotaborEngine/internal/notarender"
+	"NotaborEngine/internal/notashader"
 	"NotaborEngine/internal/notatask"
-	"NotaborEngine/notaentity"
-	"NotaborEngine/notarender"
-	"NotaborEngine/notashader"
-	"NotaborEngine/notatexture"
+	"NotaborEngine/internal/notatexture"
 	"fmt"
 	"sync"
 	"time"

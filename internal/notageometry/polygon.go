@@ -1,7 +1,7 @@
 package notageometry
 
 import (
-	"NotaborEngine/notamath"
+	"NotaborEngine/internal/notamath"
 )
 
 // Polygon is pure geometry—no rendering data

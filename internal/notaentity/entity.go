@@ -1,13 +1,13 @@
 package notaentity
 
 import (
+	"NotaborEngine/internal/notacollision"
 	"NotaborEngine/internal/notacolor"
-	"NotaborEngine/notacollision"
-	"NotaborEngine/notageometry"
-	"NotaborEngine/notamath"
-	"NotaborEngine/notarender"
-	"NotaborEngine/notashader"
-	"NotaborEngine/notatexture"
+	"NotaborEngine/internal/notageometry"
+	"NotaborEngine/internal/notamath"
+	"NotaborEngine/internal/notarender"
+	"NotaborEngine/internal/notashader"
+	"NotaborEngine/internal/notatexture"
 )
 
 // EntityID is a unique identifier for an entity.

@@ -1,12 +1,12 @@
 package notaentity
 
 import (
+	"NotaborEngine/internal/notacollision"
 	"NotaborEngine/internal/notacolor"
-	"NotaborEngine/notacollision"
-	"NotaborEngine/notageometry"
-	"NotaborEngine/notamath"
-	"NotaborEngine/notashader"
-	"NotaborEngine/notatexture"
+	"NotaborEngine/internal/notageometry"
+	"NotaborEngine/internal/notamath"
+	"NotaborEngine/internal/notashader"
+	"NotaborEngine/internal/notatexture"
 )
 
 // ComponentType represents a unique identifier for component types.

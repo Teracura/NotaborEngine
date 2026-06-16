@@ -2,11 +2,11 @@ package notarender
 
 import (
 	"NotaborEngine/internal/notacolor"
-	"NotaborEngine/notageometry"
-	"NotaborEngine/notamath"
-	"NotaborEngine/notashader"
-	"NotaborEngine/notatexture"
-	"NotaborEngine/notatomic"
+	"NotaborEngine/internal/notageometry"
+	"NotaborEngine/internal/notamath"
+	"NotaborEngine/internal/notashader"
+	"NotaborEngine/internal/notatexture"
+	"NotaborEngine/internal/notatomic"
 	"fmt"
 	"sync"
 	"unsafe"

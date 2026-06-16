@@ -1,7 +1,7 @@
 package notacore
 
 import (
-	"NotaborEngine/notatomic"
+	"NotaborEngine/internal/notatomic"
 	"sync"
 )
 
