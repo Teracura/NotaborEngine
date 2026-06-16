@@ -1,9 +1,9 @@
 package notacore
 
 import (
+	"NotaborEngine/internal/notasdl"
 	"NotaborEngine/internal/notatask"
-	"NotaborEngine/notasdl"
-	"NotaborEngine/notatomic"
+	"NotaborEngine/internal/notatomic"
 	"sync"
 
 	"github.com/Zyko0/go-sdl3/sdl"

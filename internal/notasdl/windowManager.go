@@ -1,13 +1,12 @@
 package notasdl
 
 import (
+	"NotaborEngine/internal/notarender"
+	"NotaborEngine/internal/notashader"
+	"NotaborEngine/internal/notatexture"
 	"errors"
 	"fmt"
 	"time"
-
-	"NotaborEngine/notarender"
-	"NotaborEngine/notashader"
-	"NotaborEngine/notatexture"
 
 	"github.com/Zyko0/go-sdl3/bin/binsdl"
 	"github.com/Zyko0/go-sdl3/sdl"

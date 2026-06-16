@@ -3,7 +3,7 @@
 package notacollision
 
 import (
-	"NotaborEngine/notamath"
+	"NotaborEngine/internal/notamath"
 )
 
 type PolygonCollider struct {

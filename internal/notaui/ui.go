@@ -2,14 +2,13 @@ package notaui
 
 import (
 	"NotaborEngine/internal/notacolor"
+	"NotaborEngine/internal/notacore"
+	"NotaborEngine/internal/notageometry"
+	"NotaborEngine/internal/notamath"
+	"NotaborEngine/internal/notasdl"
+	"NotaborEngine/internal/notashader"
 	"errors"
 	"sync"
-
-	"NotaborEngine/notacore"
-	"NotaborEngine/notageometry"
-	"NotaborEngine/notamath"
-	"NotaborEngine/notasdl"
-	"NotaborEngine/notashader"
 
 	"github.com/Zyko0/go-sdl3/sdl"
 )
