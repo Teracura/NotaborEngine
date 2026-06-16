@@ -1,8 +1,8 @@
 package notaentity
 
 import (
+	"NotaborEngine/internal/notacolor"
 	"NotaborEngine/notacollision"
-	"NotaborEngine/notacolor"
 	"NotaborEngine/notageometry"
 	"NotaborEngine/notamath"
 	"NotaborEngine/notarender"

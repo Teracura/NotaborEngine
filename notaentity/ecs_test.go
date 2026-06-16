@@ -1,7 +1,7 @@
 package notaentity
 
 import (
-	"NotaborEngine/notacolor"
+	"NotaborEngine/internal/notacolor"
 	"NotaborEngine/notamath"
 	"testing"
 )

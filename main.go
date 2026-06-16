@@ -1,18 +1,15 @@
 package main
 
 import (
-	"NotaborEngine/notacolor"
 	"NotaborEngine/notacore"
 	"NotaborEngine/notaentity"
 	"NotaborEngine/notamath"
 	"NotaborEngine/notasdl"
-	"NotaborEngine/notatask"
 	"NotaborEngine/notatomic"
 	"NotaborEngine/notaui"
 	"fmt"
 	"log"
 	"sync/atomic"
-	"time"
 )
 
 func main() {
@@ -23,7 +20,7 @@ func main() {
 		Muted:      false,
 	}
 
-	drawingLoop := notatask.CreateLoop(60)
+	drawingLoop := NewLoop(60)
 
 	engine, err := notacore.CreateEngine(settings)
 	if err != nil {
@@ -37,11 +34,12 @@ func main() {
 		W:         800,
 		H:         600,
 		Title:     "Entity Test",
-		Type:      notasdl.Windowed,
+		Type:      notasdl.Fullscreen,
 		Resizable: true,
 		TargetFPS: 60,
-		Loops:     []*notatask.Loop{drawingLoop},
 	}
+
+	cfg.Loops = append(cfg.Loops, drawingLoop.handle)
 
 	win, err := engine.CreateWindow(cfg)
 	if err != nil {
@@ -66,7 +64,7 @@ func main() {
 	entity := em.CreateEntity("quad").
 		WithVisual(ballVisual).
 		WithCollision(notaentity.CircleCollision(circleRadius)).
-		WithColor(notacolor.White)
+		WithColor(White.toInternal())
 
 	moveStep := float32(0.05)
 	var moveSpeed notatomic.Float32
@@ -83,7 +81,7 @@ func main() {
 	hudEnabled := true
 
 	ui.Panel("hud-panel").Rect(14, 14, 314, 220)
-	ui.Text("hud-title", "NOTA UI").At(24, 24).Scale(2).Color(notacolor.Cyan)
+	ui.Text("hud-title", "NOTA UI").At(24, 24).Scale(2).Color(Cyan.toInternal())
 	ui.TextFunc("hud-info", func() string {
 		state := "OFF"
 		if hudEnabled {
@@ -91,8 +89,8 @@ func main() {
 		}
 		return fmt.Sprintf("PLAYER %s  CLICKS %d  HUD %s", playerName, clicks.Load(), state)
 	}).At(24, 48)
-	ui.Button("hud-click", "CLICK").Rect(24, 72, 92, 28).OnClick(func() {
-		clicks.Add(1)
+	ui.Button("hud-click", "EXIT").Rect(24, 72, 92, 28).OnClick(func() {
+		win.ShouldClose = true
 	})
 	ui.Input("hud-name", &playerName).Rect(124, 72, 184, 28).Placeholder("name")
 	ui.Slider("hud-speed", &moveStep, 0.01, 0.12).Rect(24, 114, 284, 34).Label("SPEED").OnChange(func(v float32) {
@@ -153,11 +151,11 @@ func main() {
 
 		switch colorChoice.Load() {
 		case 1:
-			entity.WithColor(notacolor.Red)
+			entity.WithColor(Red.toInternal())
 		case 2:
-			entity.WithColor(notacolor.Cyan)
+			entity.WithColor(Cyan.toInternal())
 		default:
-			entity.WithColor(notacolor.White)
+			entity.WithColor(White.toInternal())
 		}
 
 		if winLeft.Held() {
@@ -172,7 +170,7 @@ func main() {
 		_ = combo.Pressed()
 
 		em.Flush()
-		alpha := drawingLoop.Alpha(time.Now())
+		alpha := drawingLoop.Alpha()
 		err := win.Draw(alpha, nil, entity)
 		if err != nil {
 			log.Printf("Draw error: %v", err)

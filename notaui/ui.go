@@ -1,10 +1,10 @@
 package notaui
 
 import (
+	"NotaborEngine/internal/notacolor"
 	"errors"
 	"sync"
 
-	"NotaborEngine/notacolor"
 	"NotaborEngine/notacore"
 	"NotaborEngine/notageometry"
 	"NotaborEngine/notamath"
