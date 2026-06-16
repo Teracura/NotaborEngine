@@ -7,6 +7,7 @@ require (
 	github.com/ebitengine/oto/v3 v3.4.0
 	github.com/go-gl/gl v0.0.0-20260331235117-4566fea9a276
 	github.com/hajimehoshi/ebiten/v2 v2.9.9
+	github.com/viterin/vek v0.4.3
 )
 
 require (
@@ -17,7 +18,6 @@ require (
 	github.com/jfreymuth/oggvorbis v1.0.5 // indirect
 	github.com/jfreymuth/vorbis v1.0.2 // indirect
 	github.com/viterin/partial v1.1.0 // indirect
-	github.com/viterin/vek v0.4.3 // indirect
 	golang.org/x/exp v0.0.0-20260312153236-7ab1446f8b90 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 )

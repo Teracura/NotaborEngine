@@ -1,7 +1,7 @@
 package notarender
 
 import (
-	"NotaborEngine/notacolor"
+	"NotaborEngine/internal/notacolor"
 	"NotaborEngine/notageometry"
 	"NotaborEngine/notamath"
 	"NotaborEngine/notashader"

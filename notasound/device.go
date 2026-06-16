@@ -60,14 +60,13 @@ func load(path string, format AudioFormat) (*Sound, error) {
 		return nil, err
 	}
 
-	// The rest of your conversion logic is correct for all three
+	// Read decoded data
 	data, err := io.ReadAll(decoder)
 	if err != nil {
 		return nil, err
 	}
 
 	// Convert int16 (2 bytes) to float32 (4 bytes)
-	// Note: len(data)*2 is correct because we go from 2 bytes/sample to 4 bytes/sample
 	floatBytes := make([]byte, len(data)*2)
 	for i := 0; i < len(data); i += 2 {
 		raw := int16(data[i]) | int16(data[i+1])<<8
