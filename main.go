@@ -1,20 +1,13 @@
 package main
 
 import (
-	"NotaborEngine/notacore"
-	"NotaborEngine/notaentity"
-	"NotaborEngine/notamath"
-	"NotaborEngine/notasdl"
-	"NotaborEngine/notatomic"
-	"NotaborEngine/notaui"
 	"fmt"
 	"log"
-	"sync/atomic"
 )
 
 func main() {
 	// Engine setup
-	settings := &notacore.Settings{
+	settings := &Settings{
 		Vsync:      true,
 		SoundLevel: 1,
 		Muted:      false,
@@ -22,19 +15,19 @@ func main() {
 
 	drawingLoop := NewLoop(60)
 
-	engine, err := notacore.CreateEngine(settings)
+	engine, err := CreateEngine(settings)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer engine.Shutdown()
 
-	cfg := &notasdl.WindowConfig{
+	cfg := &WindowConfig{
 		X:         50,
 		Y:         50,
 		W:         800,
 		H:         600,
 		Title:     "Entity Test",
-		Type:      notasdl.Fullscreen,
+		Type:      WindowFullscreen,
 		Resizable: true,
 		TargetFPS: 60,
 	}
@@ -46,13 +39,13 @@ func main() {
 		log.Fatal(err)
 	}
 
-	em := engine.EntityManager
+	em := engine.EntityManager()
 	circleRadius := float32(0.25)
 
-	ballVisual, err := win.LoadVisual("quadSprite", "resources/images/hahaha.jpg", notasdl.VisualOptions{
+	ballVisual, err := win.LoadVisual("quadSprite", "resources/images/hahaha.jpg", VisualOptions{
 		Width:        circleRadius * 2,
 		Height:       circleRadius * 2,
-		Mask:         notasdl.MaskCircle,
+		Mask:         MaskCircle,
 		CircleRadius: 0.5,
 		CircleEdge:   0.01,
 	})
@@ -63,34 +56,34 @@ func main() {
 
 	entity := em.CreateEntity("quad").
 		WithVisual(ballVisual).
-		WithCollision(notaentity.CircleCollision(circleRadius)).
-		WithColor(White.toInternal())
+		WithCollision(CircleCollision(circleRadius)).
+		WithColor(White)
 
 	moveStep := float32(0.05)
-	var moveSpeed notatomic.Float32
+	var moveSpeed AtomicFloat32
 	moveSpeed.Set(moveStep)
 
-	ui, err := notaui.New(engine, win)
+	ui, err := NewUI(engine, win)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	var clicks atomic.Int32
-	var colorChoice atomic.Int32
-	playerName := "nota"
+	var clicks AtomicInt32
+	var colorChoice AtomicInt32
+	playerName := ""
 	hudEnabled := true
 
 	ui.Panel("hud-panel").Rect(14, 14, 314, 220)
-	ui.Text("hud-title", "NOTA UI").At(24, 24).Scale(2).Color(Cyan.toInternal())
+	ui.Text("hud-title", "NOTA UI").At(24, 24).Scale(2).Color(wrapColor(Purple))
 	ui.TextFunc("hud-info", func() string {
 		state := "OFF"
 		if hudEnabled {
 			state = "ON"
 		}
-		return fmt.Sprintf("PLAYER %s  CLICKS %d  HUD %s", playerName, clicks.Load(), state)
+		return fmt.Sprintf("PLAYER %s  CLICKS %d  HUD %s", playerName, clicks.Get(), state)
 	}).At(24, 48)
 	ui.Button("hud-click", "EXIT").Rect(24, 72, 92, 28).OnClick(func() {
-		win.ShouldClose = true
+		win.Close()
 	})
 	ui.Input("hud-name", &playerName).Rect(124, 72, 184, 28).Placeholder("name")
 	ui.Slider("hud-speed", &moveStep, 0.01, 0.12).Rect(24, 114, 284, 34).Label("SPEED").OnChange(func(v float32) {
@@ -98,30 +91,30 @@ func main() {
 	})
 	ui.Checkbox("hud-toggle", "HUD ENABLED", &hudEnabled).Rect(24, 154, 160, 24)
 
-	grid := ui.Grid("hud-color-grid", notaui.R(24, 188, 284, 34), 3, 1).Gap(8)
+	grid := ui.Grid("hud-color-grid", R(24, 188, 284, 34), 3, 1).Gap(8)
 	grid.Button("hud-white", "WHITE", 0, 0).OnClick(func() {
-		colorChoice.Store(0)
+		colorChoice.Set(0)
 	})
 	grid.Button("hud-red", "RED", 1, 0).OnClick(func() {
-		colorChoice.Store(1)
+		colorChoice.Set(1)
 	})
 	grid.Button("hud-cyan", "CYAN", 2, 0).OnClick(func() {
-		colorChoice.Store(2)
+		colorChoice.Set(2)
 	})
 
-	inputCtx := engine.Input.GetContext()
+	inputCtx := engine.Input().GetContext()
 
-	moveLeft := notacore.Input("moveLeft", notacore.KeyA, inputCtx)
-	moveRight := notacore.Input("moveRight", notacore.KeyD, inputCtx)
-	moveUp := notacore.Input("moveUp", notacore.KeyW, inputCtx)
-	moveDown := notacore.Input("moveDown", notacore.KeyS, inputCtx)
-	winLeft := notacore.Input("winLeft", notacore.KeyQ, inputCtx)
-	winRight := notacore.Input("winRight", notacore.KeyE, inputCtx)
-	combo := notacore.InputCombo("combo", inputCtx, notacore.KeyE, notacore.KeyQ)
+	moveLeft := Input("moveLeft", KeyA, inputCtx)
+	moveRight := Input("moveRight", KeyD, inputCtx)
+	moveUp := Input("moveUp", KeyW, inputCtx)
+	moveDown := Input("moveDown", KeyS, inputCtx)
+	winLeft := Input("winLeft", KeyQ, inputCtx)
+	winRight := Input("winRight", KeyE, inputCtx)
+	combo := InputCombo("combo", inputCtx, KeyE, KeyQ)
 
-	leftClickSignal := notacore.Input("leftClick", notacore.MouseLeft, inputCtx)
+	leftClickSignal := Input("leftClick", MouseLeft, inputCtx)
 
-	engine.Input.Start(2400)
+	engine.Input().Start(2400)
 
 	drawingLoop.Do(func() {
 		var moveX, moveY float32
@@ -145,17 +138,17 @@ func main() {
 		}
 
 		if moveX != 0 || moveY != 0 {
-			movement := notamath.Vec2{X: moveX, Y: moveY}.Mul(moveSpeed.Get())
+			movement := Vec2{X: moveX, Y: moveY}.Mul(moveSpeed.Get())
 			entity.Move(movement)
 		}
 
-		switch colorChoice.Load() {
+		switch colorChoice.Get() {
 		case 1:
-			entity.WithColor(Red.toInternal())
+			entity.WithColor(Red)
 		case 2:
-			entity.WithColor(Cyan.toInternal())
+			entity.WithColor(Cyan)
 		default:
-			entity.WithColor(White.toInternal())
+			entity.WithColor(White)
 		}
 
 		if winLeft.Held() {

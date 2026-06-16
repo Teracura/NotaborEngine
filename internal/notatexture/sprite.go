@@ -1,7 +1,7 @@
 package notatexture
 
 import (
-	"NotaborEngine/notageometry"
+	"NotaborEngine/internal/notageometry"
 	"fmt"
 	"sync"
 

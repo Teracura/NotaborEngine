@@ -1,6 +1,8 @@
 package notacollision
 
-import "NotaborEngine/notamath"
+import (
+	"NotaborEngine/internal/notamath"
+)
 
 type CircleCollider struct {
 	LocalCenter notamath.Po2

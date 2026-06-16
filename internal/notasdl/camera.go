@@ -1,7 +1,7 @@
 package notasdl
 
 import (
-	"NotaborEngine/notamath"
+	"NotaborEngine/internal/notamath"
 	"sync"
 	"time"
 )

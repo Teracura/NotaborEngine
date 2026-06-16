@@ -1,9 +1,9 @@
 package notacore
 
 import (
-	"NotaborEngine/notaentity"
-	"NotaborEngine/notasdl"
-	"NotaborEngine/notasound"
+	"NotaborEngine/internal/notaentity"
+	"NotaborEngine/internal/notasdl"
+	"NotaborEngine/internal/notasound"
 	"runtime"
 	"time"
 )
