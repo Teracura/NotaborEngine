@@ -27,7 +27,7 @@ func main() {
 		W:         800,
 		H:         600,
 		Title:     "Entity Test",
-		Type:      WindowFullscreen,
+		Type:      WindowWindowed,
 		Resizable: true,
 		TargetFPS: 60,
 	}
@@ -164,7 +164,7 @@ func main() {
 
 		em.Flush()
 		alpha := drawingLoop.Alpha()
-		err := win.Draw(alpha, nil, entity)
+		err := win.Draw(alpha, (*Camera2D)(nil), entity)
 		if err != nil {
 			log.Printf("Draw error: %v", err)
 			// Skip UI drawing if render fails
