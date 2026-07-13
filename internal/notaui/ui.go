@@ -13,10 +13,10 @@ import (
 	"github.com/Zyko0/go-sdl3/sdl"
 )
 
-type widget interface {
-	draw(*UI)
-	id() string
-}
+const (
+	frameWidth  = 800
+	frameHeight = 600
+)
 
 type UI struct {
 	window   *notasdl.Window
@@ -26,8 +26,9 @@ type UI struct {
 	Theme Theme
 
 	mu        sync.Mutex
-	widgets   []widget
-	byID      map[string]widget
+	byID      map[string]Widget
+	orphans   []Widget        // widgets not yet claimed by a grid
+	managed   map[string]bool // widget IDs that belong to a grid
 	mouseX    float32
 	mouseY    float32
 	mouseDown bool
@@ -53,7 +54,8 @@ func New(engine *notacore.Engine, window *notasdl.Window) (*UI, error) {
 		material: material,
 		rect:     notageometry.CreateRectangle(1, 1),
 		Theme:    DefaultTheme(),
-		byID:     make(map[string]widget),
+		byID:     make(map[string]Widget),
+		managed:  make(map[string]bool),
 	}
 
 	if engine != nil && engine.Platform != nil {
@@ -67,15 +69,26 @@ func (ui *UI) Draw() {
 	ui.mu.Lock()
 	defer ui.mu.Unlock()
 
-	for _, w := range ui.widgets {
-		w.draw(ui)
+	// Unmanaged orphans are either root-level grids or legacy free-floating
+	// widgets.  Managed orphans are claimed by a grid and drawn by their
+	// parent during grid.draw() — skip them here.
+	for _, w := range ui.orphans {
+		if ui.managed[w.id()] {
+			continue // drawn by its owning grid
+		}
+		if grid, ok := w.(*Grid); ok {
+			// Root-level grid — always fills the current window.
+			grid.setBounds(R(0, 0, float32(ui.window.Config.W), float32(ui.window.Config.H)))
+			grid.draw(ui)
+		} else if !w.bounds().IsEmpty() {
+			w.draw(ui)
+		}
 	}
 }
 
 func (ui *UI) HasKeyboardFocus() bool {
 	ui.mu.Lock()
 	defer ui.mu.Unlock()
-
 	return ui.focusID != ""
 }
 
@@ -133,39 +146,31 @@ func (ui *UI) HandleEvent(event notasdl.Event) {
 	}
 }
 
-func (ui *UI) add(w widget) {
+func (ui *UI) add(w Widget) {
 	if _, exists := ui.byID[w.id()]; exists {
 		return
 	}
 	ui.byID[w.id()] = w
-	ui.widgets = append(ui.widgets, w)
+	ui.orphans = append(ui.orphans, w)
 }
 
-func (ui *UI) hit(x, y float32) widget {
-	for i := len(ui.widgets) - 1; i >= 0; i-- {
-		switch w := ui.widgets[i].(type) {
-		case *Button:
-			if w.bounds.Contains(x, y) {
-				return w
-			}
-		case *Input:
-			if w.bounds.Contains(x, y) {
-				return w
-			}
-		case *Slider:
-			if w.bounds.Contains(x, y) {
-				return w
-			}
-		case *Checkbox:
-			if w.bounds.Contains(x, y) {
-				return w
+func (ui *UI) hit(x, y float32) Widget {
+	// Check all Widgets known to the UI.
+	// Grid children are hit-tested via depth order (last wins).
+	var best Widget
+	for _, w := range ui.byID {
+		b := w.bounds()
+		if b.Contains(x, y) {
+			switch w.(type) {
+			case *Button, *Input, *Slider, *Checkbox:
+				best = w
 			}
 		}
 	}
-	return nil
+	return best
 }
 
-func (ui *UI) activate(w widget) []func() {
+func (ui *UI) activate(w Widget) []func() {
 	switch v := w.(type) {
 	case *Button:
 		if v.onClick != nil {

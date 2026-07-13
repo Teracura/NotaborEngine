@@ -73,34 +73,39 @@ func main() {
 	playerName := ""
 	hudEnabled := true
 
-	ui.Panel("hud-panel").Rect(14, 14, 314, 220)
-	ui.Text("hud-title", "NOTA UI").At(24, 24).Scale(2).Color(wrapColor(Purple))
-	ui.TextFunc("hud-info", func() string {
+	// ─── Grid layout ──────────────────────────────────────────────
+	// Floating HUD overlay — 30% wide, 50% tall, anchored top-right.
+	// Resizing the window repositions and re-sizes it automatically.
+	hud := ui.Grid("hud").Columns(3).Gap(6).Padding(8)
+	hud.SetBounds(AnchorTopRight, 0.3, 0.5)
+
+	hud.Text("hud-title", "NOTA UI").ColSpan(3).Scale(2).Color(wrapColor(Purple))
+	hud.TextFunc("hud-info", func() string {
 		state := "OFF"
 		if hudEnabled {
 			state = "ON"
 		}
 		return fmt.Sprintf("PLAYER %s  CLICKS %d  HUD %s", playerName, clicks.Get(), state)
-	}).At(24, 48)
-	ui.Button("hud-click", "EXIT").Rect(24, 72, 92, 28).OnClick(func() {
+	}).ColSpan(3)
+	hud.Button("hud-click", "EXIT").OnClick(func() {
 		win.Close()
 	})
-	ui.Input("hud-name", &playerName).Rect(124, 72, 184, 28).Placeholder("name")
-	ui.Slider("hud-speed", &moveStep, 0.01, 0.12).Rect(24, 114, 284, 34).Label("SPEED").OnChange(func(v float32) {
+	hud.Input("hud-name", &playerName).ColSpan(2).Placeholder("name")
+	hud.Slider("hud-speed", &moveStep, 0.01, 0.12).ColSpan(3).Label("SPEED").OnChange(func(v float32) {
 		moveSpeed.Set(v)
 	})
-	ui.Checkbox("hud-toggle", "HUD ENABLED", &hudEnabled).Rect(24, 154, 160, 24)
-
-	grid := ui.Grid("hud-color-grid", R(24, 188, 284, 34), 3, 1).Gap(8)
-	grid.Button("hud-white", "WHITE", 0, 0).OnClick(func() {
+	hud.Checkbox("hud-toggle", "HUD ENABLED", &hudEnabled).ColSpan(3)
+	hud.Button("hud-white", "WHITE").OnClick(func() {
 		colorChoice.Set(0)
 	})
-	grid.Button("hud-red", "RED", 1, 0).OnClick(func() {
+	hud.Button("hud-red", "RED").OnClick(func() {
 		colorChoice.Set(1)
 	})
-	grid.Button("hud-cyan", "CYAN", 2, 0).OnClick(func() {
+	hud.Button("hud-cyan", "CYAN").OnClick(func() {
 		colorChoice.Set(2)
 	})
+
+	// ─── Input ────────────────────────────────────────────────────
 
 	inputCtx := engine.Input().GetContext()
 
@@ -158,7 +163,6 @@ func main() {
 			win.Move(8, 0)
 		}
 
-		// Debug input testing removed - use proper logging if needed
 		_ = leftClickSignal.Pressed()
 		_ = combo.Pressed()
 
@@ -167,11 +171,9 @@ func main() {
 		err := win.Draw(alpha, (*Camera2D)(nil), entity)
 		if err != nil {
 			log.Printf("Draw error: %v", err)
-			// Skip UI drawing if render fails
 			return
 		}
 
-		// UI DRAWING NOW IN SAME FRAME
 		ui.Draw()
 	})
 
