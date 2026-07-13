@@ -4,6 +4,7 @@ import (
 	"NotaborEngine/internal/notatomic"
 )
 
+// AtomicFloat32 is a goroutine-safe wrapper around float32.
 type AtomicFloat32 struct {
 	handle notatomic.Float32
 }
@@ -68,6 +69,7 @@ func (a *AtomicFloat32) String() string {
 	return a.handle.String()
 }
 
+// AtomicFloat64 is a goroutine-safe wrapper around float64.
 type AtomicFloat64 struct {
 	handle notatomic.Float64
 }
@@ -132,6 +134,7 @@ func (a *AtomicFloat64) String() string {
 	return a.handle.String()
 }
 
+// AtomicInt32 is a goroutine-safe wrapper around int32.
 type AtomicInt32 struct {
 	handle notatomic.Int32
 }
@@ -196,6 +199,7 @@ func (a *AtomicInt32) String() string {
 	return a.handle.String()
 }
 
+// AtomicInt64 is a goroutine-safe wrapper around int64.
 type AtomicInt64 struct {
 	handle notatomic.Int64
 }
@@ -260,6 +264,7 @@ func (a *AtomicInt64) String() string {
 	return a.handle.String()
 }
 
+// AtomicUInt32 is a goroutine-safe wrapper around uint32.
 type AtomicUInt32 struct {
 	handle notatomic.UInt32
 }
@@ -340,6 +345,7 @@ func (a *AtomicUInt32) String() string {
 	return a.handle.String()
 }
 
+// AtomicUInt64 is a goroutine-safe wrapper around uint64.
 type AtomicUInt64 struct {
 	handle notatomic.UInt64
 }
@@ -420,6 +426,7 @@ func (a *AtomicUInt64) String() string {
 	return a.handle.String()
 }
 
+// AtomicBool is a goroutine-safe wrapper around bool.
 type AtomicBool struct {
 	handle notatomic.Bool
 }
@@ -456,6 +463,7 @@ func (a *AtomicBool) SetIfFalse(val bool) bool {
 	return a.handle.SetIfFalse(val)
 }
 
+// AtomicPointer is a goroutine-safe wrapper around a pointer to T.
 type AtomicPointer[T any] struct {
 	handle notatomic.Pointer[T]
 }
