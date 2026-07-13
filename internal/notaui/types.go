@@ -24,6 +24,37 @@ func (r Rect) IsEmpty() bool {
 	return r.W <= 0 || r.H <= 0
 }
 
+// Widget is the interface all UI elements satisfy.
+// Grid is also a Widget (it implements draw/bounds/setBounds).
+type Widget interface {
+	draw(*UI)
+	id() string
+	setBounds(Rect)
+	bounds() Rect
+	gridCol() int
+	gridRow() int
+	colSpan() int
+	rowSpan() int
+	setGridPos(col, row int)
+	setColSpan(n int)
+	setRowSpan(n int)
+}
+
+type gridMeta struct {
+	col     int
+	row     int
+	colSpan int
+	rowSpan int
+}
+
+func defaultGridMeta() gridMeta {
+	return gridMeta{col: -1, row: -1, colSpan: 1, rowSpan: 1}
+}
+
+func (m *gridMeta) setGridPos(col, row int) { m.col, m.row = col, row }
+func (m *gridMeta) setColSpan(n int)        { m.colSpan = n }
+func (m *gridMeta) setRowSpan(n int)        { m.rowSpan = n }
+
 type Theme struct {
 	Panel        notacolor.Color
 	PanelBorder  notacolor.Color
